@@ -7,9 +7,10 @@ import {configuredPrompt,prompt} from './prompt';
 import {apiSettings,validateApiUrl} from './repository';
 import {knowledgeContext} from './knowledge';
 import {searchContext} from './web-search';
+import {requestImage} from './stable-diffusion';
 
 const invitationTool={type:'function',function:{name:'write_date_invitation',get description(){return prompt('date.tool.invitation');},strict:true,parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('date.tool.invitationText');}}},required:['text'],additionalProperties:false}}};
-const responseTool={type:'function',function:{name:'answer_date_invitation',get description(){return prompt('date.tool.response');},strict:true,parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('date.tool.responseText');}},accepted:{type:'boolean',get description(){return prompt('date.tool.accepted');}}},required:['text','accepted'],additionalProperties:false}}};
+const responseTool={type:'function',function:{name:'answer_date_invitation',get description(){return prompt('date.tool.response');},strict:true,parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('date.tool.responseText');}},accepted:{type:'boolean',get description(){return prompt('date.tool.accepted');}},image:{type:'boolean',get description(){return prompt('proactive.image');}}},required:['text','accepted','image'],additionalProperties:false}}};
 
 function toolArguments(payload:any,name:string){
  const call=payload?.choices?.[0]?.message?.tool_calls?.find((item:any)=>item?.function?.name===name);
@@ -64,10 +65,11 @@ export async function answerDateInvitation(state:GameState,content:Content,signa
  const [knowledge,webKnowledge]=await Promise.all([knowledgeContext(endpoint,settings,context,signal),searchContext(context,signal)]);
  const inviteText=pending.text.trim();
  const answer=await call(endpoint,settings,[{role:'system',content:[configuredPrompt(content.settings.systemPrompt),configuredPrompt(character.prompt,{name:character.name,bio:character.bio}),knowledge,webKnowledge,prompt('date.responseSystem'),prompt('date.context',{context})].join('\n\n')},{role:'user',content:inviteText}],responseTool,'answer_date_invitation',signal);
- if(typeof answer.text!=='string'||!answer.text.trim()||answer.text.length>1000||typeof answer.accepted!=='boolean')throw Error(prompt('date.error.tool'));
+ if(typeof answer.text!=='string'||!answer.text.trim()||answer.text.length>1000||typeof answer.accepted!=='boolean'||answer.image!==undefined&&typeof answer.image!=='boolean')throw Error(prompt('date.error.tool'));
+ const generated=answer.image===true?await requestImage(state,content,'line',answer.text.trim(),character.id,signal,undefined,{allowCharacterlessLine:true,proactiveLine:true}):{};
  const next=structuredClone(state),stamp={date:next.date,phase:next.phase,channel:'line' as const},memory=next.memories[character.id]??=emptyMemory();
  memory.recent.push({role:'assistant',content:answer.text.trim(),...stamp});memory.turns++;compactMemory(memory,content.settings.memoryChars,content.settings.recentTurns);
- next.messages[character.id]=[...(next.messages[character.id]??[]),{id:crypto.randomUUID(),phase:next.phase,from:character.id,text:answer.text.trim(),date:next.date,conversationClosed:true,expectsReply:false}].slice(-100);
+ next.messages[character.id]=[...(next.messages[character.id]??[]),{id:crypto.randomUUID(),phase:next.phase,from:character.id,text:answer.text.trim(),date:next.date,conversationClosed:true,expectsReply:false,...(generated.url?{image:generated.url,imageCaption:generated.caption}:{})}].slice(-100);
  delete next.pendingDateInvitation;
  next.pendingDate={character:character.id,place:place.id,accepted:answer.accepted};next.revision++;
  return next;

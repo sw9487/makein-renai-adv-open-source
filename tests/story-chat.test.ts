@@ -102,7 +102,10 @@ test('LINE reply can follow the player, publish a post, and send an additional m
   const t=twitterState(s,defaultContent);t.accounts.kazuhiko.private=false;(t.following.anna??={}).kazuhiko=false;
   const result=await converse(s,defaultContent,'anna','那你會追蹤我嗎？','line');
   expect(request.tools[0].function.parameters.properties.actions.items.properties.kind.enum).toContain('twitter_follow');
+  expect(request.tools[0].function.parameters.properties.actions.items.properties.image.type).toBe('boolean');
   expect(request.messages[0].content).toContain('followingPlayer');
+  expect(request.messages[0].content).toContain('\"handle\":\"kazuhiko\"');
+  expect(request.messages[0].content).toContain('\"mutual\":');
   expect(result.state.twitter?.following.anna.kazuhiko).toBe(true);
   expect(Object.values(result.state.twitter!.posts).some(post=>post.author==='anna'&&post.text==='今天有件開心的事。')).toBe(true);
   expect(result.state.messages.anna.map(message=>message.text)).toEqual(['那你會追蹤我嗎？','我現在追蹤你了。','下次再聊！']);
@@ -148,6 +151,7 @@ test('character tool rejects malformed or duplicate ordered actions',()=>{
  expect(()=>parseCharacterReply(response({...base,actions:[{kind:'twitter_follow',target:'kazuhiko',text:'invalid'}]}),true)).toThrow();
  expect(()=>parseCharacterReply(response({...base,actions:[{kind:'twitter_follow',target:'kazuhiko',text:''},{kind:'twitter_follow',target:'kazuhiko',text:''}]}),true)).toThrow();
  expect(()=>parseCharacterReply(response({...base,actions:[{kind:'twitter_post',target:'kazuhiko',text:'invalid'}]}),true)).toThrow();
+ expect(parseCharacterReply(response({...base,actions:[{kind:'twitter_post',target:'',text:'photo post',image:true}]}),true).actions?.[0]).toMatchObject({kind:'twitter_post',image:true});
 });
 
 test('roles change at club/council handover, not automatically on school promotion',()=>{

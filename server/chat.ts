@@ -83,7 +83,7 @@ export async function converse(
       configuredPrompt(character.prompt,{name:character.name,bio:character.bio}),
       prompt('chat.action'),
       prompt('chat.expression',{available:availableExpressions.join(', ')}),
-      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitter?Object.entries(twitter.accounts).filter(([accountId])=>accountId!==id).map(([accountId,account])=>({id:accountId,handle:account.handle,private:account.private})):[]})}),
+      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitter?Object.entries(twitter.accounts).filter(([accountId])=>accountId!==id).map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,handle:account.handle,private:account.private,following:!!twitter.following[id]?.[accountId],followsActor:!!twitter.following[accountId]?.[id],mutual:!!twitter.following[id]?.[accountId]&&!!twitter.following[accountId]?.[id],mentionable:!twitter.blocks?.[id]?.[accountId]&&!twitter.blocks?.[accountId]?.[id]})):[]})}),
       sceneTimePrompt(s,c,s.character===id),
       knowledge,
       webKnowledge,
@@ -195,7 +195,7 @@ export async function converse(
     if(performance.narration) log(s,'旁白',performance.narration);
     if(performance.thought) log(s,character.name+'・內心（未說出口）',performance.thought);
   }
-  executeCharacterActions(s,c,id,performance);
+  await executeCharacterActions(s,c,id,performance,signal);
   s.revision++;
   return { state: s, reply, performance, mode, notice:imageResult.notice };
 }

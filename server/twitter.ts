@@ -22,7 +22,7 @@ import {conversationMemoryMessages,reliableMemorySummary,socialMemoryContext} fr
 import {requestLanguage} from './request-locale';
 
 type Decision={action:'idle'|'post'|'reply'|'like'|'repost'|'quote'|'follow'|'accept'|'decline'|'unfollow'|'block'|'unblock'|'delete';target:string;text:string;image:boolean;affectionDelta?:number};
-type PrivateLineDecision={action:'private_line';target:'kazuhiko';text:string;image:false;affectionDelta?:number};
+type PrivateLineDecision={action:'private_line';target:'kazuhiko';text:string;image:boolean;affectionDelta?:number};
 type SocialDecision=Decision|PrivateLineDecision;
 const kinds=['idle','post','reply','like','repost','quote','follow','accept','decline','unfollow','block','unblock','delete'];
 const imageSession=crypto.randomUUID();
@@ -30,7 +30,7 @@ const twitterActionProperties={action:{type:'string',enum:kinds},target:{type:'s
 const twitterThenItem={type:'object',properties:twitterActionProperties,required:['action','target','text'],additionalProperties:false};
 export const twitterTool={type:'function',function:{name:'twitter_action',get description(){return prompt('twitter.tool');},parameters:{type:'object',properties:{...twitterActionProperties,then:{type:'array',minItems:1,maxItems:2,items:twitterThenItem,get description(){return prompt('twitter.thenTool');}}},required:['action','target','text'],additionalProperties:false}}};
 export const twitterImagePostTool={type:'function',function:{name:'twitter_image_post',get description(){return prompt('twitter.imagePostTool');},parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('twitter.text');}}},required:['text'],additionalProperties:false}}};
-export const twitterPrivateLineTool={type:'function',function:{name:'send_twitter_private_line',get description(){return prompt('twitter.privateLineTool');},parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('proactive.text');}},affectionDelta:{type:'integer',minimum:-3,maximum:3,get description(){return prompt('twitter.privateLineAffectionTool');}}},required:['text'],additionalProperties:false}}};
+export const twitterPrivateLineTool={type:'function',function:{name:'send_twitter_private_line',get description(){return prompt('twitter.privateLineTool');},parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('proactive.text');}},image:{type:'boolean',get description(){return prompt('proactive.image');}},affectionDelta:{type:'integer',minimum:-3,maximum:3,get description(){return prompt('twitter.privateLineAffectionTool');}}},required:['text','image'],additionalProperties:false}}};
 export const twitterNewsBatchTool={type:'function',function:{name:'twitter_news_batch',get description(){return prompt('twitter.newsBatchTool');},parameters:{type:'object',properties:{articles:{type:'array',minItems:0,maxItems:3,items:{type:'object',properties:{headline:{type:'string',maxLength:72,get description(){return prompt('twitter.newsHeadline');}},body:{type:'string',maxLength:180,get description(){return prompt('twitter.newsBody');}},sourcePostIds:{type:'array',minItems:1,items:{type:'string'},get description(){return prompt('twitter.newsSources');}}},required:['headline','body','sourcePostIds'],additionalProperties:false}}},required:['articles'],additionalProperties:false}}};
 export function parseTwitterDecision(raw:string):Decision{
  const x=JSON.parse(raw),affectionDelta=x?.affectionDelta??0;if(!x||!kinds.includes(x.action)||typeof x.target!=='string'||x.target.length>100||typeof x.text!=='string'||x.text.length>280||typeof x.image!=='boolean'||!Number.isInteger(affectionDelta)||affectionDelta < -3||affectionDelta > 3||(['post','reply','quote'].includes(x.action)&&!x.text.trim())||(x.image&&x.action!=='post'))throw Error('Twitter 工具參數不正確。回覆不能附圖或生圖。');return {action:x.action,target:x.target,text:x.text,image:x.image,...(Object.hasOwn(x,'affectionDelta')?{affectionDelta}: {})};
@@ -41,7 +41,8 @@ function parseTwitterToolCall(name:string,raw:string):SocialDecision[]{
  if(name==='send_twitter_private_line'){
   if(!x||typeof x.text!=='string'||!x.text.trim()||x.text.length>1500)throw Error('LLM 未提交有效的 LINE 私訊。');
   const affectionDelta=x.affectionDelta??0;if(!Number.isInteger(affectionDelta)||affectionDelta < -3||affectionDelta > 3)throw Error('Twitter 好感變化必須為 -3 至 3 的整數。');
-  return [{action:'private_line',target:'kazuhiko',text:x.text.trim(),image:false,...(Object.hasOwn(x,'affectionDelta')?{affectionDelta}:{})}];
+  if(x.image!==undefined&&typeof x.image!=='boolean')throw Error(prompt('error.characterActions'));
+  return [{action:'private_line',target:'kazuhiko',text:x.text.trim(),image:x.image===true,...(Object.hasOwn(x,'affectionDelta')?{affectionDelta}:{})}];
  }
  // Some OpenAI-compatible proxies may echo a legacy `image: false` even when
  // the advertised schema omits it. It cannot enable a capability, so accept it
@@ -141,10 +142,11 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
  }
 }
 
-export function publishCharacterTwitterPost(s:GameState,c:Content,actor:string,text:string){
+export function publishCharacterTwitterPost(s:GameState,c:Content,actor:string,text:string,image?:{url?:string;caption?:string}){
  if(!socialAppEnabled(s,'twitter'))return;
  const clean=text.trim();if(!clean||clean.length>280||actor==='kazuhiko')return;
  const post=applyTwitterDecision(s,c,actor,{action:'post',target:'',text:clean,image:false});
+ if(post&&image?.url)post.image=image.url;
  if(post)queueOnlineReactions(s,c,{action:'post',target:'',text:clean,image:false},post,actor);
  return post;
 }
@@ -418,6 +420,7 @@ export async function runTwitterJob(ownerId:string,runId:string|undefined,c:Cont
    await update(ownerId,runId,s=>{const active=s.twitter?.jobs?.[id];if(active?.status==='running')active.replyTarget=target;});
    if(Date.now()-(recentTwitterView.get(ownerId)??0)<1500)await new Promise(resolve=>setTimeout(resolve,700));
   },job.advisoryTopic);
+  const privateLineImage=decisions[0].action==='private_line'&&decisions[0].image?await requestImage(snapshot,c,'line',decisions[0].text,job.actor,undefined,undefined,{allowCharacterlessLine:true,proactiveLine:true}):{};
   const created:{decision:Decision;post:TwitterPost}[]=[];
   await update(ownerId,runId,s=>{
    if(s.twitter?.jobs?.[id]?.status!=='running')return;
@@ -427,7 +430,7 @@ export async function runTwitterJob(ownerId:string,runId:string|undefined,c:Cont
    if(decisions[0].action==='private_line'){
     const decision=decisions[0];
     const event=job.trigger?.postId?s.twitter?.posts[job.trigger.postId]:undefined;
-    if(s.contacts.includes(job.actor)&&job.trigger?.source==='kazuhiko'&&['post','reply','quote'].includes(job.trigger.kind)&&event&&canReadPost(s.twitter!,job.actor,event.id)){applyTwitterAffection(s,c,job.actor,job.trigger,decision.affectionDelta);appendCharacterLine(s,c,job.actor,decision.text);}
+    if(s.contacts.includes(job.actor)&&job.trigger?.source==='kazuhiko'&&['post','reply','quote'].includes(job.trigger.kind)&&event&&canReadPost(s.twitter!,job.actor,event.id)){applyTwitterAffection(s,c,job.actor,job.trigger,decision.affectionDelta);appendCharacterLine(s,c,job.actor,decision.text,privateLineImage);}
     s.twitter!.jobs![id].status='done';return;
    }
    const planned=decisions as Decision[],time={...s,date:job.date,phase:job.phase},t=twitterState(s,c);

@@ -3,7 +3,7 @@ import {prompt} from './prompt';
 export const characterExpressions = ['normal','happy','angry','sad','surprised','shy','suspicious','crying','enduring','cold','awkward','flustered','flushed','smug','inviting','excited','disdainful','troubled','dazed','faint','breakdown'] as const;
 export type CharacterExpression = typeof characterExpressions[number];
 export const characterActionKinds=['twitter_follow','twitter_unfollow','twitter_post','line_message'] as const;
-export type CharacterAction={kind:typeof characterActionKinds[number];target:string;text:string};
+export type CharacterAction={kind:typeof characterActionKinds[number];target:string;text:string;image:boolean};
 export type CharacterReply = {memoryFacts?:{kind:'promise'|'relationship'|'event'|'preference';text:string}[];speech:string;narration:string;thought:string|null;expression?:CharacterExpression;affectionDelta?:number;twitterPost?:string;actions?:CharacterAction[];respond?:boolean;conversationClosed?:boolean;choices?:{text:string;reply:string;delta:number}[]};
 export const characterTool = {
   type:'function',
@@ -20,7 +20,7 @@ export const characterTool = {
       narration:{type:['string'],get description(){return prompt('tool.character.narration');}},
       thought:{type:['string','null'],get description(){return prompt('tool.character.thought');}},
       expression:{type:'string',enum:characterExpressions,get description(){return prompt('tool.character.expression');}},
-      actions:{type:'array',maxItems:3,get description(){return prompt('tool.character.actions');},items:{type:'object',properties:{kind:{type:'string',enum:characterActionKinds},target:{type:'string'},text:{type:'string'}},required:['kind','target','text'],additionalProperties:false}},
+      actions:{type:'array',maxItems:3,get description(){return prompt('tool.character.actions');},items:{type:'object',properties:{kind:{type:'string',enum:characterActionKinds},target:{type:'string'},text:{type:'string'},image:{type:'boolean'}},required:['kind','target','text','image'],additionalProperties:false}},
     },required:['memoryFacts','needs_narration','needs_thought','speech','narration','thought','expression','affectionDelta','twitterPost','actions','respond','conversationClosed'],additionalProperties:false}},
 };
 export const choiceTool={type:'function',function:{name:'present_character_choices',get description(){return prompt('tool.character.choices');},strict:true,parameters:{...characterTool.function.parameters,properties:{...characterTool.function.parameters.properties,choices:{type:'array',minItems:2,maxItems:3,items:{type:'object',properties:{delta:{type:'integer',minimum:-3,maximum:3,get description(){return prompt('tool.choice.delta');}},text:{type:'string',get description(){return prompt('tool.choice.text');}},reply:{type:'string',get description(){return prompt('tool.choice.reply');}}},required:['text','reply','delta'],additionalProperties:false}}},required:['memoryFacts','needs_narration','needs_thought','speech','narration','thought','expression','affectionDelta','twitterPost','actions','respond','conversationClosed','choices']}}};
@@ -73,11 +73,12 @@ export function parseCharacterReply(data:unknown,line=false,allowChoices=false):
   if(rawActions!==undefined&&(!Array.isArray(rawActions)||rawActions.length>3))throw Error(prompt('error.characterActions'));
   const actions:CharacterAction[]=[];
   for(const raw of rawActions??[]){
-    if(!raw||!characterActionKinds.includes(raw.kind)||typeof raw.target!=='string'||typeof raw.text!=='string'||Object.keys(raw).some(key=>!['kind','target','text'].includes(key)))throw Error(prompt('error.characterActions'));
+    if(!raw||!characterActionKinds.includes(raw.kind)||typeof raw.target!=='string'||typeof raw.text!=='string'||raw.image!==undefined&&typeof raw.image!=='boolean'||Object.keys(raw).some(key=>!['kind','target','text','image'].includes(key)))throw Error(prompt('error.characterActions'));
     const target=raw.target.trim(),text=raw.text.trim();
-    if(raw.kind==='twitter_post'?target||!text||text.length>280:raw.kind==='line_message'?target!=='kazuhiko'||!text||text.length>1500:!target||text)throw Error(prompt('error.characterActions'));
+    const image=raw.image===true;
+    if(raw.kind==='twitter_post'?target||!text||text.length>280:raw.kind==='line_message'?target!=='kazuhiko'||!text||text.length>1500:!target||text||image)throw Error(prompt('error.characterActions'));
     if(actions.some(action=>action.kind===raw.kind&&action.target===target))throw Error(prompt('error.characterActions'));
-    actions.push({kind:raw.kind,target,text});
+    actions.push({kind:raw.kind,target,text,image});
   }
   if(r)delete r.actions;
   const hasRespond=!!r&&Object.prototype.hasOwnProperty.call(r,'respond');

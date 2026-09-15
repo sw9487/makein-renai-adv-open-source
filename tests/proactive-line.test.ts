@@ -28,6 +28,7 @@ test('proactive LINE overlaps scene work, preserves scene state and skips repeat
       expect(sceneStarted).toBe(true);
       expect((init as any).timeout).toBe(false);
       const body = JSON.parse(String(init?.body));
+      expect(body.tools[0].function.parameters.properties.twitterImage.type).toBe('boolean');
       expect(body.messages[0].content).toContain('2026-07-13');
       return Response.json({ choices: [{ message: { tool_calls: [{ function: {
         name: 'send_proactive_line', arguments: JSON.stringify({ send: true, text: 'Hello', image:false }),
