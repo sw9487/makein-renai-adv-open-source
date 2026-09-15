@@ -11,8 +11,6 @@
 
 本專案採 **PolyForm Noncommercial License 1.0.0**，屬於「原始碼公開（source-available）」的非商業授權，**不是 MIT，也不是符合 OSI 定義的開源授權**。
 
-此授權自 `1.3.33` 版起適用。先前已依 MIT License 正當取得的舊版本，仍依取得當時的 MIT 條款使用；新的非商業限制不溯及既往。
-
 - 作者擁有著作權的原創程式碼，可在 [LICENSE](LICENSE) 規定的非商業目的內使用、研究、修改與散布。
 - 禁止將程式碼或修改版用於商業產品、收費服務、廣告營利、公司內部商業專案，或任何預期的商業應用；商業授權必須另行取得作者書面同意。
 - 原作角色、名稱、故事、官方立繪、動畫場面圖、小說插圖、Logo、商標及其他第三方素材不屬於作者，**不因本專案的 LICENSE 而獲得任何授權**。其權利仍歸原權利人所有。
@@ -33,8 +31,6 @@ This is an unofficial fan-made project created entirely without commercial purpo
 
 The original software code owned by the project author is available under the [PolyForm Noncommercial License 1.0.0](LICENSE). This is a **source-available, noncommercial license**, not the MIT License or an OSI-approved open-source license. Commercial products, paid services, advertising-supported use, crowdfunding rewards, resale, commercial hosting, internal business projects, and any use with an anticipated commercial application require the project author's prior written permission.
 
-This license applies from version `1.3.33`. Copies of earlier versions lawfully obtained under the MIT License remain governed by the MIT terms in effect when they were obtained; the new restrictions are not retroactive.
-
 No license is granted to any third-party characters, names, stories, settings, official artwork, anime stills, novel illustrations, logos, trademarks, audio, or other third-party material. Their rights remain with their respective rightsholders. The labels “noncommercial,” “fan project,” and “unofficial” do not constitute permission from those rightsholders. Contributors must not submit third-party material unless they have all permissions necessary for its use and distribution. See [NOTICE.md](NOTICE.md) for details.
 
 The public edition prohibits sexual content, sexual acts, sexualized nudity, fetish content, and sexual exploitation across all game, scene, LINE, Twitter, and image-generation prompts in Chinese, English, and Japanese. It includes no novel-cover records or files, and public accounts ship without avatar or banner images.
@@ -44,8 +40,6 @@ The public edition prohibits sexual content, sexual acts, sexualized nudity, fet
 本プロジェクトは、『負けヒロインが多すぎる！』を心から愛するファンが、営利を一切目的とせずに制作した非公式のファンプロジェクトです。ファン創作と交流を通じて原作への愛情と敬意を表すことのみを目的としています。原作、原作者およびすべての権利者を尊重し、正規版を購入して原作者と公式展開を直接応援することを強く推奨します。本プロジェクトは、個人による研究、学習、ファン同士の交流および非営利の娯楽のみを目的としています。原作者、出版社、アニメ製作委員会その他の権利者とは提携しておらず、許諾、協賛または推奨を受けたものではありません。
 
 プロジェクト作者が著作権を有するオリジナルのソフトウェアコードは、[PolyForm Noncommercial License 1.0.0](LICENSE) に基づいて提供されます。これは **ソース公開型（source-available）の非商用ライセンス**であり、MIT License または OSI の定義に準拠するオープンソースライセンスではありません。商用製品、有料サービス、広告収益を伴う利用、クラウドファンディングの返礼、販売、商用ホスティング、企業内の商用プロジェクト、その他商用利用が予定される用途には、プロジェクト作者の事前の書面による許可が必要です。
-
-このライセンスはバージョン `1.3.33` 以降に適用されます。それ以前に MIT License の下で適法に取得された旧バージョンには、取得時の MIT License が引き続き適用され、新たな制限が遡及して適用されることはありません。
 
 第三者が権利を有するキャラクター、名称、物語、設定、公式画像、アニメの場面画像、小説の挿絵、ロゴ、商標、音声その他の素材について、本プロジェクトは一切の利用許諾を与えるものではありません。これらの権利は各権利者に帰属します。「非営利」「ファンプロジェクト」「非公式」と表示しても、権利者から許諾を得たことにはなりません。コントリビューターは、利用および配布に必要な権利を有しない第三者素材を提出してはなりません。詳細は [NOTICE.md](NOTICE.md) を参照してください。
 
@@ -199,6 +193,26 @@ docker compose -f compose.dev.yaml down -v
 LLM 使用 OpenAI 相容的 Chat Completions URL、API key 與 model。Stable Diffusion 使用 A1111 相容 API。可以在 `.env`／`.env.development` 提供初始值，也可以由 Editor 儲存；Editor 儲存後的設定會寫入目前環境所連線的 PostgreSQL。
 
 金鑰只在伺服器端使用，不會回傳給遊戲前端或寫入遊戲內容。正式與 dev 使用不同資料庫，因此兩邊的 API、Stable Diffusion 與 Editor 設定也彼此獨立。
+
+### Stable Diffusion 推薦資源
+
+本專案使用 [AUTOMATIC1111 Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) 相容 API。Checkpoint 與 LoRA 必須選擇相容的模型家族，並請自行閱讀各下載頁面的授權、使用限制及建議參數。
+
+- Pony 推薦模型：[Zuki Clean Anime Mix](https://civitai.com/models/880541/zuki-clean-anime-mix)
+- Illustrious 推薦模型：[Nova Anime XL](https://civitai.com/models/376130/nova-anime-xl?modelVersionId=2940478)
+- 推薦 LoRA 作者：[Ibukimakisiko](https://civitai.com/user/Ibukimakisiko)、[nochekaiser881](https://civitai.com/user/nochekaiser881)、[soralz](https://civitai.com/user/soralz)
+
+以上連結僅是方便使用者尋找相容資源的推薦，不表示本專案與相關作者或平台具有合作、授權或背書關係；模型與 LoRA 也不隨本專案散布。
+
+## 向原作致謝
+
+《負けヒロインが多すぎる！》的一切美好，來自原作者雨森たきび老師、角色原案いみぎむる老師，以及出版社、動畫製作團隊與所有參與原作及官方展開的人員。沒有他們，就不會有如此美好的原作。本專案只是粉絲出於喜愛所製作的非官方、非商業同人作品，絕不主張自己創造或擁有原作的角色、世界觀與成就。
+
+- 原作者雨森たきび老師：[X（@amamori_takibi）](https://x.com/amamori_takibi)
+- [原作特設網站（ガガガ文庫／小学館）](https://gagagabunko.jp/special/makeine/)
+- [TV 動畫官方網站](https://makeine-anime.com/)
+
+作者沒有因本專案獲得收入，也沒有商業團隊或商業資源；製作遊戲只是單純憑著對作品的熱愛。若任何權利人認為本專案內容有所冒犯或涉及其權利，敬請透過專案聯絡方式通知並指出具體內容，作者會優先配合移除、修正，必要時下架 repository。此聲明是善意聯絡與處理機制，並不表示已取得授權，也不限制任何權利人依法享有的權利。
 
 Editor 可修改角色資料、Prompt、立繪、場景、事件、好感度與 CG。上傳或生成的圖片會寫入目前環境指定的 S3 bucket，不會寫回 Git 工作目錄。
 

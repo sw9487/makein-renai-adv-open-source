@@ -28,6 +28,7 @@ hires:
 人物模型介紹：
 
 温水 佳樹：
+https://civitai.com/models/592056/pony-xl-nukumizu-kaju-make-heroine-ga-oo-sugiru
 
 半袖制服
 
@@ -52,6 +53,7 @@ kaju-pajamas, nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,blue 
 ---
 
 八奈見 杏菜：
+https://civitai.com/models/597929/pony-xl-yanami-anna-make-heroine-ga-oo-sugiru
 
 半袖制服
 
@@ -84,6 +86,7 @@ anna-serafuku, yanami anna,blue eyes,blue hair, twin braids, black serafuku, red
 ---
 
 小鞠 知花：
+https://civitai.com/models/608314/pony-xl-komari-chika-make-heroine-ga-oo-sugiru
 
 半袖制服
 
@@ -104,6 +107,7 @@ chika-casual,komari chika,yellow eyes,red hair,hair over one eye,one side up,hai
 ---
 
 焼塩 檸檬：
+https://civitai.com/models/609116/pony-xl-yakishio-lemon-make-heroine-ga-oo-sugiru
 
 半袖制服
 
@@ -128,6 +132,7 @@ remon-mummy,yakishio lemon,purple eyes,brown hair,short hair, mummy costume, che
 ---
 
 朝雲 千早：
+https://civitai.com/models/802777/pony-xl-asagumo-chihaya-make-heroine-ga-oo-sugiru
 
 半袖制服
 
@@ -144,6 +149,7 @@ chihaya-casual,asagumo chihaya,purple eyes, brown hair, parted bangs,long hair, 
 ---
 
 姫宮 華恋：
+https://civitai.com/models/732100/pdxl-himemiya-karen-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
@@ -162,6 +168,7 @@ winter school uniform, white blazer, white collared shirt, long sleeves, red bow
 ---
 
 馬剃 天愛星：
+https://civitai.com/models/786116/pdxl-basori-tiara-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
@@ -180,6 +187,7 @@ maid costume, cat ears, black dress, white collar, frills, white apron, juliet s
 ---
 
 温水 和彦：
+https://civitai.com/models/621652/pdxl-nukumizu-kazuhiko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
@@ -196,6 +204,7 @@ topless, black male swimwear, swim trunks
 ---
 
 志喜屋 夢子：
+https://civitai.com/models/709855/pdxl-shikiya-yumeko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
