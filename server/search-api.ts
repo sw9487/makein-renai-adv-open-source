@@ -1,0 +1,3 @@
+import {isEditor,json,sameOrigin} from './repository';
+import {publicSearchSettings,saveSearchSettings,searchSettings} from './web-search';
+export async function handle(req:Request){try{if(!await isEditor(req))return json({error:'請先登入 editor。'},401);if(req.method==='GET')return json({...await publicSearchSettings(),keys:(await searchSettings()).keys});sameOrigin(req);const raw=await req.text();if(raw.length>10000)throw Error('設定過大。');await saveSearchSettings(JSON.parse(raw));return json({...await publicSearchSettings(),keys:(await searchSettings()).keys});}catch(e){return json({error:e instanceof Error?e.message:'儲存失敗'},400);}}

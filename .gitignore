@@ -1,0 +1,30 @@
+node_modules/
+dist/
+*.tgz
+.env
+.env.*
+!.env.example
+!.env.development.example
+.dev.vars*
+.editor-password
+.wrangler/
+*.sqlite*
+*.log
+web/audit-report.json
+web/tsconfig.tsbuildinfo
+.test-data/
+.DS_Store
+# LoRA binaries are hosted externally; never commit local archive copies.
+/content/downloads/lora.zip
+/content/downloads/lora-models/
+.migration-backup.sqlite
+
+# Public-release exclusions: do not publish book covers, public-account artwork,
+# or the removed erotic prompt reference even if they exist in a local source copy.
+/content/assets/books/
+/web/public/assets/twitter-official/
+/gen_img_skills/
+/knowledge/erotica-core/
+/knowledge/jc-character/
+/knowledge/jk-character/
+/knowledge/kyoukon/

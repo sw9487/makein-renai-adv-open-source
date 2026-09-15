@@ -1,0 +1,15 @@
+{
+  "signingKey": "bWFrZWluLXNoYXJlZC1zdHMtc2lnbmluZy1rZXktMjAyNg==",
+  "identities": [
+    {
+      "name": "makein-app",
+      "credentials": [
+        {
+          "accessKey": "makein",
+          "secretKey": "makein"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write"]
+    }
+  ]
+}

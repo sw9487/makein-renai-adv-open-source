@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: "105114"
+      POSTGRES_DB: MAKEIN_DB
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d MAKEIN_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  s3:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -ip.bind=0.0.0.0 -dir=/data
+    ports:
+      - "8333:8333"
+    volumes:
+      - s3_data:/data
+      - ./docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://admin:105114@postgres:5432/MAKEIN_DB
+      S3_ENDPOINT: http://s3:8333
+      S3_BUCKET: makein-s3
+      S3_ACCESS_KEY: makein
+      S3_SECRET_KEY: makein
+      S3_REGION: auto
+      AI_API_URL: ${AI_API_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+    ports:
+      - "9487:9487"
+
+volumes:
+  postgres_data:
+  s3_data:

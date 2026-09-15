@@ -1,0 +1,12 @@
+import { repairPortraits, upgradeRoster } from '../core/roster';
+import { upgradeStories } from '../core/story';
+import {fillSceneBackgrounds} from '../core/scene-assets';
+const base='http://localhost:9487';
+const response=await fetch(base+'/api/editor');
+if(!response.ok) throw Error('Cannot read local editor');
+const {content,revision}=await response.json();
+const updated=fillSceneBackgrounds(upgradeStories(repairPortraits(upgradeRoster(content))));
+const save=await fetch(base+'/api/editor',{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify({type:'content',content:updated,revision})});
+const result=await save.json();
+if(!save.ok) throw Error(result.error);
+console.log({saved:result.ok,sourceSaved:result.sourceSaved,characters:updated.characters.length});

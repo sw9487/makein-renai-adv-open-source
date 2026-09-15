@@ -1,0 +1,38 @@
+name: makein-dev
+
+services:
+  postgres-dev:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: "105114"
+      POSTGRES_DB: MAKEIN_DEV_DB
+    ports:
+      - "5439:5432"
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d MAKEIN_DEV_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  s3-dev:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -ip.bind=0.0.0.0 -dir=/data
+    ports:
+      - "8334:8333"
+    volumes:
+      - dev_s3_data:/data
+      - ./docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  dev_postgres_data:
+  dev_s3_data:

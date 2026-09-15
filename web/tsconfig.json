@@ -1,0 +1,1 @@
+﻿{"extends":"../tsconfig.json","compilerOptions":{"types":["node","vite/client"],"paths":{"@/*":["./*"],"@core/*":["../core/*"]}},"include":["main.tsx","components/game.tsx","components/editor.tsx","vite.config.ts"]}

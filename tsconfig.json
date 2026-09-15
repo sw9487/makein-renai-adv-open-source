@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["bun"],
+    "paths": { "@/*": ["./web/*"], "@core/*": ["./core/*"] }
+  },
+  "include": [
+    "core/**/*.ts",
+    "server/**/*.ts",
+    "web/main.tsx",
+    "web/components/game.tsx",
+    "web/components/editor.tsx",
+    "web/vite.config.ts",
+    "tests/**/*.test.ts"
+  ],
+  "exclude": ["node_modules", "web/node_modules", "dist"]
+}

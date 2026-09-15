@@ -1,0 +1,25 @@
+{
+  "name": "@sw9487/makein-renai-adv",
+  "version": "1.3.33",
+  "description": "Local-first Makeine fan romance ADV and story editor. Runs with Bun on port 9487.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev.mjs",
+    "build": "bun scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "audit:i18n": "bun scripts/audit-i18n.ts check",
+    "test": "bun test ./tests"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  }
+}
