@@ -259,6 +259,11 @@ export default function Editor() {
     return () => window.removeEventListener(editorFeedbackEvent, show);
   }, []);
   useEffect(() => {
+    if (!feedback) return;
+    const timeout = window.setTimeout(() => setFeedback(''), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
+  useEffect(() => {
     const guard = (e: BeforeUnloadEvent) => {
       if (dirty||serviceDirty||translation) {
         e.preventDefault();
