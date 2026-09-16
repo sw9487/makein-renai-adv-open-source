@@ -70,7 +70,7 @@ export function twitterPostPending(post:TwitterPost){return !post.image&&(post.i
 export function canReadPost(t:TwitterState,viewer:string,id:string){
  const seen=new Set<string>(),chain:TwitterPost[]=[];let p:TwitterPost|undefined=t.posts[id];
  while(p){if(seen.has(p.id)||twitterBlocked(t,viewer,p.author)||!t.accounts[p.author]||twitterPostPending(p)&&viewer!==p.author)return false;seen.add(p.id);chain.push(p);if(!p.replyTo)break;const parent:TwitterPost|undefined=t.posts[p.replyTo];if(!parent)return false;p=parent;}
- const root=chain.at(-1);return !!root&&(canReadTwitter(t,viewer,root.author)||twitterMentions(t,chain[0].text,viewer,chain[0].author));
+ const root=chain.at(-1);return !!root&&canReadTwitter(t,viewer,root.author);
 }
 export function twitterView(t:TwitterState,viewer=playerTwitter,date?:string,phase?:number,known?:ReadonlySet<string>):TwitterState{
  const visibleAuthor=(author:string)=>!!t.accounts[author]?.publicAccount||!known||author===viewer||known.has(author)&&!!t.following[viewer]?.[author];

@@ -104,12 +104,26 @@ test('LINE reply can follow the player, publish a post, and send an additional m
   expect(request.tools[0].function.parameters.properties.actions.items.properties.kind.enum).toContain('twitter_follow');
   expect(request.tools[0].function.parameters.properties.actions.items.properties.image.type).toBe('boolean');
   expect(request.messages[0].content).toContain('followingPlayer');
-  expect(request.messages[0].content).toContain('\"handle\":\"kazuhiko\"');
-  expect(request.messages[0].content).toContain('\"mutual\":');
+  expect(request.messages[0].content).toContain('\"mentionableFriends\":');
+  expect(request.messages[0].content).not.toContain('\"handle\":\"anna\"');
   expect(result.state.twitter?.following.anna.kazuhiko).toBe(true);
   expect(Object.values(result.state.twitter!.posts).some(post=>post.author==='anna'&&post.text==='今天有件開心的事。')).toBe(true);
   expect(result.state.messages.anna.map(message=>message.text)).toEqual(['那你會追蹤我嗎？','我現在追蹤你了。','下次再聊！']);
   expect(t.following.anna.kazuhiko).toBe(false);
+ }finally{globalThis.fetch=originalFetch;close();if(resolve(dir).startsWith(resolve(tmpdir())))rmSync(dir,{recursive:true,force:true});}
+});
+
+test('a persisted LINE reply defers cross-platform actions without exposing partial posts',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'makein-line-deferred-actions-test-'));
+ const close=initializeRuntime({dataDir:dir,port:19496,env:{AI_API_URL:'https://example.com/v1',AI_API_KEY:'test-only',AI_MODEL:'mock'}});
+ const originalFetch=globalThis.fetch;
+ globalThis.fetch=(async()=>Response.json(response({speech:'LINE 已回覆。',narration:'',thought:null,respond:true,actions:[{kind:'twitter_post',target:'',text:'稍後完整發布',image:true}]}))) as unknown as typeof fetch;
+ try{
+  const s=createGame(defaultContent);s.met.push('kaju');s.contacts.push('kaju');
+  const result=await converse(s,defaultContent,'kaju','請同時發文','line','',undefined,undefined,true);
+  expect(result.state.messages.kaju.at(-1)?.text).toBe('LINE 已回覆。');
+  expect(Object.values(result.state.twitter!.posts).some(post=>post.text==='稍後完整發布')).toBe(false);
+  expect(result.performance.actions?.[0]).toMatchObject({kind:'twitter_post',image:true});
  }finally{globalThis.fetch=originalFetch;close();if(resolve(dir).startsWith(resolve(tmpdir())))rmSync(dir,{recursive:true,force:true});}
 });
 

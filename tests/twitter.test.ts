@@ -137,6 +137,7 @@ test('private thread bodies cannot leak through public replies or API game snaps
  const reply=applyTwitterDecision(s,defaultContent,'kazuhiko',decision('reply',root.id,'private reply'))!;
  expect(canReadPost(s.twitter!,'anna',root.id)).toBe(false);expect(canReadPost(s.twitter!,'anna',reply.id)).toBe(false);
  expect(twitterView(s.twitter!,'anna').posts[reply.id]).toBeUndefined();expect(()=>applyTwitterDecision(s,defaultContent,'anna',decision('like',reply.id))).toThrow();
+ expect(()=>applyTwitterDecision(s,defaultContent,'kazuhiko',decision('reply',root.id,'@anna should stay private'))).toThrow();
  expect(()=>applyTwitterDecision(s,defaultContent,'kazuhiko',decision('repost',root.id))).toThrow();expect(()=>applyTwitterDecision(s,defaultContent,'kazuhiko',decision('repost',reply.id))).toThrow();
  expect(withoutTwitter({state:s}).state.twitter).toBeUndefined();
 });
@@ -156,6 +157,12 @@ test('character @all mentions every mutual friend without rewriting the post',()
  expect(twitterNotificationTokens(t,'kazuhiko')).toContain(`mention:${post.id}`);
  expect(JSON.stringify(s.memories.asami)).toContain('大家晚安 @all');
  expect(JSON.stringify(s.memories['official-library']??{})).not.toContain('大家晚安 @all');
+});
+test('character posts reject direct mentions outside their mutual friends',()=>{
+ const s=createGame(defaultContent),t=s.twitter!;
+ (t.following.kaju??={}).asami=true;(t.following.asami??={}).kaju=true;
+ expect(()=>publishCharacterTwitterPost(s,defaultContent,'kaju','@anna not a mutual friend')).toThrow();
+ expect(publishCharacterTwitterPost(s,defaultContent,'kaju','@asami mutual friend')).toBeDefined();
 });
 test('Twitter interactions are merged into character memory for later LINE and scene chat',()=>{
  const s=createGame(defaultContent),root=applyTwitterDecision(s,defaultContent,'anna',decision('post','','今天做了鬆餅。'))!;
@@ -179,10 +186,11 @@ test('Twitter memory preserves every account identity across posts, replies, lik
  expect(conversationMemoryMessages(s.memories.anna,s,'anna').some(message=>message.content.includes('arbitrary'))).toBe(false);
 });
 
-test('a private root mention reaches only the explicitly mentioned account',()=>{
- const s=createGame(defaultContent);applyTwitterDecision(s,defaultContent,'kaju',decision('post','','@anna 私人家庭訊息'));
- expect(JSON.stringify(s.memories.anna??{})).toContain('私人家庭訊息');
- expect(JSON.stringify(s.memories.lemon??{})).not.toContain('私人家庭訊息');
+test('a private root cannot mention or become visible to an unapproved account',()=>{
+ const s=createGame(defaultContent);
+ expect(()=>applyTwitterDecision(s,defaultContent,'kaju',decision('post','','@anna private invitation'))).toThrow();
+ const root=applyTwitterDecision(s,defaultContent,'kaju',decision('post','','private post'))!;
+ expect(canReadPost(s.twitter!,'anna',root.id)).toBe(false);
 });
 
 test('repeating private follow requests does not duplicate memory; public follow clears an old request',()=>{

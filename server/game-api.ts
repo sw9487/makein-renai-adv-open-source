@@ -1,8 +1,9 @@
-import {admittedRequest} from './harness-request';
+import {admittedRequest,requestScope} from './harness-request';
 import {eventStream} from './harness-events';
 import {imageSettings,illustrateScene} from './stable-diffusion';
 import {imageJob,startImageJob,imageJobResult} from './image-jobs';
 import {commitConcurrent} from './concurrent-state';
+import {executeCharacterActions} from './character-actions';
 import { act, createGame } from "@core/engine";
 import { converse } from "./chat";
 import {enlivenScene,listeningChoice,sceneSource} from './scene';
@@ -224,6 +225,15 @@ async function performPOST(req: Request) {
       const result = await converse(baseline, c, a.character, a.text.trim(), a.channel, actionText, onPartial,signal,a.channel==='line');
       if(a.channel==='talk'){const image=await illustrateScene(result.state,c,false,signal);result.notice=image.notice;}
       result.state=await commitConcurrent(id, result.state, baseline,a.channel==='line');
+      if(a.channel==='line'&&(result.performance.actions?.length||result.performance.twitterPost))requestScope.exit(()=>void (async()=>{
+        try{
+          const actionBase=await read<GameState|null>('game:'+id,null);if(!actionBase||actionBase.runId!==baseline.runId)return;
+          const actionState=structuredClone(actionBase);
+          await executeCharacterActions(actionState,c,a.character,result.performance);
+          actionState.revision=actionBase.revision+1;actionState.sceneRevision=actionBase.sceneRevision??actionBase.revision;
+          const saved=await commitConcurrent(id,actionState,actionBase,true);resumeTwitter(id,saved,c);
+        }catch(error){console.error('Failed to execute deferred character actions',error instanceof Error?error.message:error);}
+      })());
       // The committed game state is the user-visible completion boundary. A
       // transcript is auxiliary history and must not leave LINE saying
       // "sending/replying" while it waits for another pool checkout.

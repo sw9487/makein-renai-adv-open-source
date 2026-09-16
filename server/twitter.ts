@@ -1,5 +1,5 @@
 import type {Content,GameState,SocialMemoryEvent} from '../core/types';
-import {canReadPost,socialSettings,twitterBlocked,twitterMentions,twitterState,twitterView,twitterPosts,twitterTrends,twitterOnlineProbability,twitterNpcInteractionLimit,twitterPostPending,type TwitterJob,type TwitterPost} from '../core/twitter';
+import {canReadPost,canReadTwitter,socialSettings,twitterBlocked,twitterMentions,twitterState,twitterView,twitterPosts,twitterTrends,twitterOnlineProbability,twitterNpcInteractionLimit,twitterPostPending,type TwitterJob,type TwitterPost} from '../core/twitter';
 import {characterAvailable,currentProfile} from '../core/timeline';
 import {apiSettings,read,commit,json,owner,sameOrigin,content} from './repository';
 import {modelFetch} from './model-runtime';
@@ -109,6 +109,9 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
   if(d.action==='reply'&&d.image)throw Error('Twitter 回覆不能附圖或生圖。');
   if(d.action==='quote'&&(t.accounts[p!.author].private||p!.replyTo&&!canReadPost({...t,following:{}},'public-viewer',p!.id)))throw Error('私人帳號或私人對話串的貼文不能轉發。');
   const blockedMention=Object.keys(t.accounts).find(id=>twitterMentions(t,d.text,id)&&twitterBlocked(t,actor,id));if(blockedMention)throw Error(prompt('error.twitterBlockedMention'));
+  const root=d.action==='reply'?twitterRoot(t,p!):undefined;
+  const forbiddenMention=Object.keys(t.accounts).find(id=>twitterMentions(t,d.text,id)&&!(root?canReadPost(t,id,root.id):canReadTwitter(t,id,actor)));
+  if(forbiddenMention)throw Error(prompt('error.twitterPrivateMention'));
   const post:TwitterPost={id:crypto.randomUUID(),author:actor,text:d.text.trim(),date:s.date,phase:s.phase,created:now,likes:{},reposts:{},...(d.image?{imagePending:true,imageStatus:'準備配圖',imageSession:imageSession+':'+s.runId}:{}),...(d.action==='reply'?{replyTo:d.target}:d.action==='quote'?{quoteTo:d.target}:{})};t.posts[post.id]=post;
   if(!d.image)rememberPublishedPost(s,c,post);
   return post;
@@ -145,6 +148,8 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
 export function publishCharacterTwitterPost(s:GameState,c:Content,actor:string,text:string,image?:{url?:string;caption?:string}){
  if(!socialAppEnabled(s,'twitter'))return;
  const clean=text.trim();if(!clean||clean.length>280||actor==='kazuhiko')return;
+ const t=twitterState(s,c),invalid=Object.keys(t.accounts).find(id=>twitterMentions(t,clean,id)&&(!t.following[actor]?.[id]||!t.following[id]?.[actor]||twitterBlocked(t,actor,id)||!canReadTwitter(t,id,actor)));
+ if(invalid)throw Error(prompt('error.twitterFriendMention'));
  const post=applyTwitterDecision(s,c,actor,{action:'post',target:'',text:clean,image:false});
  if(post&&image?.url)post.image=image.url;
  if(post)queueOnlineReactions(s,c,{action:'post',target:'',text:clean,image:false},post,actor);

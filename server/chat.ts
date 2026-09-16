@@ -18,7 +18,7 @@ import {requestImage,type ImageResult} from './stable-diffusion';
 import {conversationMemoryMessages,reliableMemorySummary,socialMemoryContext} from './memory-context';
 import {configuredPrompt,prompt} from './prompt';
 import {shuffleChoices} from '../core/choices';
-import {twitterState} from '../core/twitter';
+import {canReadTwitter,twitterBlocked,twitterState} from '../core/twitter';
 import {executeCharacterActions} from './character-actions';
 import {lineReceiptContext} from '../core/line-inbox';
 import {socialAppEnabled} from '../core/social-apps';
@@ -62,6 +62,8 @@ export async function converse(
   const lineEnabled=socialAppEnabled(s,'line')&&s.contacts.includes(id);
   const availableActions=characterActionKinds.filter(kind=>kind==='line_message'?lineEnabled:twitterEnabled);
   const twitter=twitterEnabled?twitterState(s,c):undefined;
+  const twitterAccounts=twitter?Object.entries(twitter.accounts).filter(([accountId])=>accountId!==id):[];
+  const mentionableFriends=twitter?twitterAccounts.filter(([accountId])=>!!twitter.following[id]?.[accountId]&&!!twitter.following[accountId]?.[id]&&!twitterBlocked(twitter,id,accountId)&&canReadTwitter(twitter,accountId,id)).map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,handle:account.handle})):[];
   if (settings.key && settings.url && settings.model) {
     const cooldownPrefix=`choice-tool:${id}:`;
     const lastOffer=Number(s.flags.find(f=>f.startsWith(cooldownPrefix))?.slice(cooldownPrefix.length)??-5);
@@ -84,7 +86,7 @@ export async function converse(
       configuredPrompt(character.prompt,{name:character.name,bio:character.bio}),
       prompt('chat.action'),
       prompt('chat.expression',{available:availableExpressions.join(', ')}),
-      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitter?Object.entries(twitter.accounts).filter(([accountId])=>accountId!==id).map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,handle:account.handle,private:account.private,following:!!twitter.following[id]?.[accountId],followsActor:!!twitter.following[accountId]?.[id],mutual:!!twitter.following[id]?.[accountId]&&!!twitter.following[accountId]?.[id],mentionable:!twitter.blocks?.[id]?.[accountId]&&!twitter.blocks?.[accountId]?.[id]})):[]})}),
+      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitterAccounts.map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,private:account.private,following:!!twitter?.following[id]?.[accountId],followsActor:!!twitter?.following[accountId]?.[id]})),mentionableFriends})}),
       sceneTimePrompt(s,c,s.character===id),
       knowledge,
       webKnowledge,
@@ -196,7 +198,7 @@ export async function converse(
     if(performance.narration) log(s,'旁白',performance.narration);
     if(performance.thought) log(s,character.name+'・內心（未說出口）',performance.thought);
   }
-  await executeCharacterActions(s,c,id,performance,signal);
+  if(!(channel==='line'&&lineMessagePersisted))await executeCharacterActions(s,c,id,performance,signal);
   s.revision++;
   return { state: s, reply, performance, mode, notice:imageResult.notice };
 }
