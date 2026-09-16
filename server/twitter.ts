@@ -82,7 +82,7 @@ function rememberPublishedPost(s:GameState,c:Content,post:TwitterPost){
  rememberTwitter(s,c,actor,eventType,actor,prompt(post.replyTo?'twitter.memory.ownReply':post.quoteTo?'twitter.memory.ownQuote':'twitter.memory.ownPost',{text:post.text}),ownDetails);
  if(parent){const root=twitterRoot(t,parent),context=prompt('twitter.memory.replyContext',{root:root.text,actor:actorName,reply:post.text}),details={postId:post.id,postAuthor:actor,postAuthorName:actorName,targetId:parent.author,targetName:twitterAccountName(c,parent.author)};if(canReadPost(t,parent.author,post.id))rememberTwitter(s,c,parent.author,'reply',actor,context,details);if(root.author!==parent.author&&canReadPost(t,root.author,post.id))rememberTwitter(s,c,root.author,'reply',actor,context,{...details,targetId:root.author,targetName:twitterAccountName(c,root.author)});}
  if(quoted&&canReadPost(t,quoted.author,post.id))rememberTwitter(s,c,quoted.author,'quote',actor,prompt('twitter.memory.quotedYou',{actor:actorName,original:quoted.text,text:post.text}),{postId:post.id,postAuthor:actor,postAuthorName:actorName,quotedPostId:quoted.id,quotedPostAuthor:quoted.author,quotedPostAuthorName:twitterAccountName(c,quoted.author)});
- for(const [id,account] of Object.entries(t.accounts))if(id!==actor&&canReadPost(t,id,post.id)&&post.text.match(/(?<![A-Za-z0-9_])@[A-Za-z0-9_]+/g)?.some(handle=>handle.slice(1).toLowerCase()===account.handle.toLowerCase()))rememberTwitter(s,c,id,'mention',actor,prompt('twitter.memory.mentionedYou',{actor:actorName,text:post.text}),{postId:post.id,postAuthor:actor,postAuthorName:actorName,targetId:id,targetName:twitterAccountName(c,id)});
+ for(const id of Object.keys(t.accounts))if(id!==actor&&canReadPost(t,id,post.id)&&twitterMentions(t,post.text,id,actor))rememberTwitter(s,c,id,'mention',actor,prompt('twitter.memory.mentionedYou',{actor:actorName,text:post.text}),{postId:post.id,postAuthor:actor,postAuthorName:actorName,targetId:id,targetName:twitterAccountName(c,id)});
 }
 export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decision,now=Date.now()):TwitterPost|undefined{
  const t=twitterState(s,c);if(!t.accounts[actor])throw Error('找不到帳號。');
@@ -142,16 +142,9 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
  }
 }
 
-export function expandCharacterAudienceMentions(s:GameState,c:Content,actor:string,text:string){
- const t=twitterState(s,c);
- if(!/(?<![A-Za-z0-9_])@all(?![A-Za-z0-9_])/i.test(text))return text;
- const handles=Object.entries(t.accounts).filter(([id])=>id!==actor&&t.following[actor]?.[id]&&t.following[id]?.[actor]&&!twitterBlocked(t,actor,id)&&!twitterMentions(t,text,id)).map(([,account])=>'@'+account.handle);
- return text.replace(/(?<![A-Za-z0-9_])@all(?![A-Za-z0-9_])/gi,handles.join(' ')).replace(/[ \t]{2,}/g,' ').trim();
-}
-
 export function publishCharacterTwitterPost(s:GameState,c:Content,actor:string,text:string,image?:{url?:string;caption?:string}){
  if(!socialAppEnabled(s,'twitter'))return;
- const clean=expandCharacterAudienceMentions(s,c,actor,text.trim());if(!clean||clean.length>280||actor==='kazuhiko')return;
+ const clean=text.trim();if(!clean||clean.length>280||actor==='kazuhiko')return;
  const post=applyTwitterDecision(s,c,actor,{action:'post',target:'',text:clean,image:false});
  if(post&&image?.url)post.image=image.url;
  if(post)queueOnlineReactions(s,c,{action:'post',target:'',text:clean,image:false},post,actor);
@@ -505,9 +498,8 @@ function queueOnlineReactions(s:GameState,c:Content,d:Decision,post:TwitterPost|
   const organic=Object.keys(t.accounts).filter(actor=>t.following[actor]?.[source]&&t.jobs?.[stamp+actor]&&(t.onlineSlot!==`${s.date}:${s.phase}`||t.online?.includes(actor))).sort(()=>Math.random()-.5).slice(0,2);
   for(const actor of organic)targets.add(actor);
  }
- if(['post','reply','quote'].includes(d.action))for(const [id,account] of Object.entries(t.accounts)){
-  const escaped=account.handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  if(new RegExp(`(^|[^A-Za-z0-9_])@${escaped}(?![A-Za-z0-9_])`,'i').test(d.text))targets.add(id);
+ if(['post','reply','quote'].includes(d.action))for(const id of Object.keys(t.accounts)){
+  if(twitterMentions(t,d.text,id,source))targets.add(id);
  }
  const patrolEvent=post??(['reply','quote'].includes(d.action)?t.posts[d.target]:undefined);
  const patrolRoot=patrolEvent&&twitterRoot(t,patrolEvent);
@@ -517,8 +509,8 @@ function queueOnlineReactions(s:GameState,c:Content,d:Decision,post:TwitterPost|
  for(const actor of targets){
   const publicAccount=!!t.accounts[actor]?.publicAccount;
   if(publicAccount){
-   const eventPost=post??(['reply','like','repost','quote'].includes(d.action)?t.posts[d.target]:undefined),root=eventPost&&twitterRoot(t,eventPost),handle=t.accounts[actor].handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-   const mentioned=!!eventPost&&new RegExp(`(^|[^A-Za-z0-9_])@${handle}(?![A-Za-z0-9_])`,'i').test(eventPost.text);
+   const eventPost=post??(['reply','like','repost','quote'].includes(d.action)?t.posts[d.target]:undefined),root=eventPost&&twitterRoot(t,eventPost);
+   const mentioned=!!eventPost&&twitterMentions(t,eventPost.text,actor,eventPost.author);
    const patrol=hasPublicModule(publicAccountFor(c,actor),'patrol')&&['post','reply','quote'].includes(d.action)&&!!root&&!t.accounts[root.author]?.private;
    if(!(mentioned||d.action==='reply'&&root?.author===actor||patrol))continue;
   }

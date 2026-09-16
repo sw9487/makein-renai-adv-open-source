@@ -123,6 +123,11 @@ test('Twitter uses an in-app close button instead of the outer dialog control',(
 test('NPC Twitter prompts expose optional contextual account mentions',()=>{
  const source=readFileSync(new URL('../server/twitter.ts',import.meta.url),'utf8');expect(source).toContain("prompt('twitter.mentionSystem')");
 });
+test('@all renders with the same blue mention treatment as account tags',()=>{
+ const source=readFileSync(new URL('../web/components/twitter-panel.tsx',import.meta.url),'utf8');
+ expect(source).toContain("broadcast=match[1]?.toLowerCase()==='all'");
+ expect(source).toContain('<span className="tw-mention" key={match.index}><button type="button">{match[0]}</button></span>');
+});
 
 test('primary Twitter navigation resets the timeline to its newest position',()=>{
  const source=readFileSync(new URL('../web/components/twitter-panel.tsx',import.meta.url),'utf8');

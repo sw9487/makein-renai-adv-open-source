@@ -147,13 +147,15 @@ test('NPC-to-NPC follows and interactions are independent and cannot impersonate
  expect(()=>parseTwitterDecision('{"action":"delete_everything"}')).toThrow();
  expect(()=>parseTwitterDecision(JSON.stringify({action:'reply',target:p.id,text:'附圖回覆',image:true}))).toThrow();
 });
-test('character broadcast mentions expand to real mutual-friend handles',()=>{
+test('character @all mentions every mutual friend without rewriting the post',()=>{
  const s=createGame(defaultContent),t=s.twitter!;
  (t.following.kaju??={}).asami=true;(t.following.asami??={}).kaju=true;
  (t.following.kaju??={})['official-library']=true;
  const post=publishCharacterTwitterPost(s,defaultContent,'kaju','大家晚安 @all')!;
- expect(post.text).toContain('@kazuhiko');expect(post.text).toContain('@asami');
- expect(post.text).not.toContain('@all');expect(post.text).not.toContain('@toyohashi_lib');
+ expect(post.text).toBe('大家晚安 @all');
+ expect(twitterNotificationTokens(t,'kazuhiko')).toContain(`mention:${post.id}`);
+ expect(JSON.stringify(s.memories.asami)).toContain('大家晚安 @all');
+ expect(JSON.stringify(s.memories['official-library']??{})).not.toContain('大家晚安 @all');
 });
 test('Twitter interactions are merged into character memory for later LINE and scene chat',()=>{
  const s=createGame(defaultContent),root=applyTwitterDecision(s,defaultContent,'anna',decision('post','','今天做了鬆餅。'))!;

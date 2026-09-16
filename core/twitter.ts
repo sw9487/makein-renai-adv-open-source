@@ -44,13 +44,12 @@ export function twitterState(s:GameState,c:Content):TwitterState{
  return t;
 }
 export function twitterNotificationTokens(t:TwitterState,viewer=playerTwitter){
- const handle=t.accounts[viewer]?.handle??viewer,mention=new RegExp(`(^|[^A-Za-z0-9_])@${handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![A-Za-z0-9_])`,'i');
  const own=new Set(Object.values(t.posts).filter(post=>post.author===viewer).map(post=>post.id));
  const tokens=[...Object.entries(t.requests[viewer]??{}).filter(([,active])=>active).map(([id])=>`request:${id}`),...Object.keys(t.notices).filter(id=>id!=='scheduler').map(id=>`notice:${id}`)];
  for(const post of Object.values(t.posts)){
   if(twitterPostPending(post)||!canReadPost(t,viewer,post.id))continue;
   if(!post.replyTo&&post.author!==viewer&&t.following[viewer]?.[post.author])tokens.push(`friend:${post.id}`);
-  if(post.author!==viewer&&mention.test(post.text))tokens.push(`mention:${post.id}`);
+  if(post.author!==viewer&&twitterMentions(t,post.text,viewer,post.author))tokens.push(`mention:${post.id}`);
   if(post.replyTo&&own.has(post.replyTo))tokens.push(`reply:${post.id}`);
   if(post.quoteTo&&own.has(post.quoteTo))tokens.push(`quote:${post.id}`);
   if(post.author===viewer)for(const id of Object.keys(post.likes))if(post.likes[id])tokens.push(`like:${post.id}:${id}`);
@@ -60,19 +59,18 @@ export function twitterNotificationTokens(t:TwitterState,viewer=playerTwitter){
 }
 export function twitterNotificationKey(t:TwitterState,viewer=playerTwitter){return twitterNotificationTokens(t,viewer).join('|');}
 export function twitterAudibleNotificationTokens(t:TwitterState,viewer=playerTwitter){
- const handle=t.accounts[viewer]?.handle??viewer,mention=new RegExp(`(^|[^A-Za-z0-9_])@${handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![A-Za-z0-9_])`,'i');
  const own=new Set(Object.values(t.posts).filter(post=>post.author===viewer).map(post=>post.id));
- return Object.values(t.posts).filter(post=>post.author!==viewer&&!twitterPostPending(post)&&canReadPost(t,viewer,post.id)&&(mention.test(post.text)||!!post.replyTo&&own.has(post.replyTo)||!!post.quoteTo&&own.has(post.quoteTo))).map(post=>post.id).sort();
+ return Object.values(t.posts).filter(post=>post.author!==viewer&&!twitterPostPending(post)&&canReadPost(t,viewer,post.id)&&(twitterMentions(t,post.text,viewer,post.author)||!!post.replyTo&&own.has(post.replyTo)||!!post.quoteTo&&own.has(post.quoteTo))).map(post=>post.id).sort();
 }
 export function twitterHasUnread(t:TwitterState,readKey:string,viewer=playerTwitter){const seen=new Set(readKey.split('|'));return twitterNotificationTokens(t,viewer).some(token=>!seen.has(token));}
 export function twitterBlocked(t:TwitterState,a:string,b:string){return !!t.blocks?.[a]?.[b]||!!t.blocks?.[b]?.[a];}
-export function twitterMentions(t:TwitterState,text:string,accountId:string){const handle=t.accounts[accountId]?.handle;if(!handle)return false;return new RegExp(`(^|[^A-Za-z0-9_])@${handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![A-Za-z0-9_])`,'i').test(text);}
+export function twitterMentions(t:TwitterState,text:string,accountId:string,author?:string){const handle=t.accounts[accountId]?.handle;if(!handle)return false;const direct=new RegExp(`(^|[^A-Za-z0-9_])@${handle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![A-Za-z0-9_])`,'i').test(text);if(direct)return true;return !!author&&author!==accountId&&/(?<![A-Za-z0-9_])@all(?![A-Za-z0-9_])/i.test(text)&&!!t.following[author]?.[accountId]&&!!t.following[accountId]?.[author]&&!twitterBlocked(t,author,accountId);}
 export function canReadTwitter(t:TwitterState,viewer:string,author:string){return viewer===author||!twitterBlocked(t,viewer,author)&&!!t.accounts[author]&&(!t.accounts[author].private||t.following[viewer]?.[author]===true);}
 export function twitterPostPending(post:TwitterPost){return !post.image&&(post.imagePending===true||post.imageStatus==='準備配圖');}
 export function canReadPost(t:TwitterState,viewer:string,id:string){
  const seen=new Set<string>(),chain:TwitterPost[]=[];let p:TwitterPost|undefined=t.posts[id];
  while(p){if(seen.has(p.id)||twitterBlocked(t,viewer,p.author)||!t.accounts[p.author]||twitterPostPending(p)&&viewer!==p.author)return false;seen.add(p.id);chain.push(p);if(!p.replyTo)break;const parent:TwitterPost|undefined=t.posts[p.replyTo];if(!parent)return false;p=parent;}
- const root=chain.at(-1);return !!root&&(canReadTwitter(t,viewer,root.author)||twitterMentions(t,chain[0].text,viewer));
+ const root=chain.at(-1);return !!root&&(canReadTwitter(t,viewer,root.author)||twitterMentions(t,chain[0].text,viewer,chain[0].author));
 }
 export function twitterView(t:TwitterState,viewer=playerTwitter,date?:string,phase?:number,known?:ReadonlySet<string>):TwitterState{
  const visibleAuthor=(author:string)=>!!t.accounts[author]?.publicAccount||!known||author===viewer||known.has(author)&&!!t.following[viewer]?.[author];
