@@ -336,6 +336,14 @@ async function attachImage(ownerId:string,runId:string|undefined,c:Content,post:
 }
 
 const activeJobs=new Set<string>();
+const twitterWorkerWaiters:(()=>void)[]=[];
+let twitterWorkers=0;
+async function withTwitterWorker<T>(work:()=>Promise<T>){
+ if(twitterWorkers<3)twitterWorkers++;
+ else await new Promise<void>(resolve=>twitterWorkerWaiters.push(resolve));
+ try{return await work();}
+ finally{const next=twitterWorkerWaiters.shift();if(next)next();else twitterWorkers--;}
+}
 const recentTwitterView=new Map<string,number>();
 const jobKey=(ownerId:string,runId:string|undefined,id:string)=>runtimeConfig().dataDir+':'+ownerId+':'+runId+':'+id;
 const liveJobKey=(ownerId:string,runId:string|undefined,id:string)=>{try{return jobKey(ownerId,runId,id);}catch{return undefined;}};
@@ -480,7 +488,7 @@ export function resumeTwitter(ownerId:string,s:GameState,c:Content){
   if(job.status==='running'){
    void update(ownerId,s.runId,state=>{const j=state.twitter?.jobs?.[id];if(j?.status==='running'){j.status='interrupted';j.error='服務重啟；未自動重送 LLM 請求。';}}).catch(()=>{}).finally(()=>activeJobs.delete(key));continue;
   }
-  const timer=setTimeout(()=>{if(key!==liveJobKey(ownerId,s.runId,id)){activeJobs.delete(key);return;}void runTwitterJob(ownerId,s.runId,c,id).catch(()=>{}).finally(async()=>{activeJobs.delete(key);try{if(key!==liveJobKey(ownerId,s.runId,id))return;const latest=await read<GameState|null>('game:'+ownerId,null);if(latest&&latest.runId===s.runId)resumeTwitter(ownerId,latest,c);}catch{}});},Math.max(0,job.due-Date.now()));timer.unref?.();
+  const timer=setTimeout(()=>{void withTwitterWorker(async()=>{if(key!==liveJobKey(ownerId,s.runId,id))return;await runTwitterJob(ownerId,s.runId,c,id);}).catch(()=>{}).finally(async()=>{activeJobs.delete(key);try{if(key!==liveJobKey(ownerId,s.runId,id))return;const latest=await read<GameState|null>('game:'+ownerId,null);if(latest&&latest.runId===s.runId)resumeTwitter(ownerId,latest,c);}catch{}});},Math.max(0,job.due-Date.now()));timer.unref?.();
  }
 }
 function queueOnlineReactions(s:GameState,c:Content,d:Decision,post:TwitterPost|undefined,source:string){

@@ -388,6 +388,10 @@ export default function Game() {
       if(response.ok&&response.headers.get('content-type')?.includes('text/event-stream')&&response.body){
         for await(const frame of readSSE(response.body)){
           const data=JSON.parse(frame.data);
+          if(frame.event==='accepted'&&generation===lineRequestGeneration.current&&data.state){
+            setState(previous=>previous&&previous.revision>data.state.revision?previous:preserveReadingDialogue(previous,data.state));
+            updateLine(id,{pending:null});
+          }
           if(frame.event==='delta'&&generation===lineRequestGeneration.current)updateLine(id,{reply:data});
           if(frame.event==='error')throw gameRequestError(data,uiText("line_transmission_failed"));
           if(frame.event==='done')result=data;
@@ -1232,7 +1236,7 @@ export default function Game() {
                     </p>
                   )}
                   {pendingLine?.channel==='line'&&pendingLine.character===phone&&<>{state.messages[phone]?.at(-1)?.date!==state.date&&<div className="line-date-divider"><time dateTime={state.date}>{state.date}</time></div>}<div className="message sent"><p>{String(pendingLine.text)}</p><small role="status">{t('game.lineSending')}</small></div></>}
-                  {pendingLine?.channel==='line'&&pendingLine.character===phone&&lineReply?.speech&&<div className="message received"><p>{lineReply.speech}</p><small>{uiText("replying")}</small></div>}
+                  {lineBusy&&lineReply?.speech&&<div className="message received"><p>{lineReply.speech}</p></div>}
                   {failedLine?.channel==='line'&&failedLine.character===phone&&<div className="chat-retry"><p>{uiText("not_sent")}{String(failedLine.text)}</p><button disabled={lineBusy} onClick={()=>void action(failedLine)}>{uiText("retry")}</button><button onClick={()=>{setText(String(failedLine.text));setFailedLine(null);}}>{uiText("return_to_input")}</button></div>}
                   </div>
                 </div>

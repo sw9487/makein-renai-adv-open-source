@@ -37,6 +37,12 @@ export class LocalDatabase {
       `CREATE TABLE harness_requests (owner TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT NOT NULL, digest TEXT NOT NULL, status TEXT NOT NULL, result TEXT, code INTEGER, updated INTEGER NOT NULL, PRIMARY KEY(owner,request_id));
        CREATE TABLE harness_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, run_id TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, created INTEGER NOT NULL);
        CREATE INDEX idx_harness_events_owner ON harness_events(owner,seq);`,
+      `CREATE TABLE twitter_jobs (owner TEXT NOT NULL, run_id TEXT NOT NULL, job_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,job_id));
+       CREATE INDEX idx_twitter_jobs_owner_run ON twitter_jobs(owner,run_id);
+       CREATE TABLE line_threads (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,character));
+       CREATE TABLE character_memories (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,character));
+       CREATE TABLE twitter_posts (owner TEXT NOT NULL, run_id TEXT NOT NULL, post_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,post_id));
+       CREATE TABLE game_logs (owner TEXT NOT NULL, run_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id));`,
     ];
     this.sqlite.transaction(() => {
       const version = (this.sqlite.query("PRAGMA user_version").get() as { user_version: number })
@@ -109,8 +115,13 @@ export class PostgresDatabase implements AppDatabase {
     const clients = globalForDb.__makeinePostgresClients ??= new Map();
     const existing = clients.get(url);
     this.client = existing ?? new SQL(url, {
-      max: 30,
-      connection: { TimeZone: "UTC" },
+      max: 10,
+      connection: {
+        TimeZone: "UTC",
+        lock_timeout: "5s",
+        idle_in_transaction_session_timeout: "10s",
+        statement_timeout: "30s",
+      },
       prepare: false,
       connectionTimeout: 10,
       idleTimeout: 30,
@@ -126,6 +137,28 @@ export class PostgresDatabase implements AppDatabase {
       CREATE TABLE IF NOT EXISTS harness_requests (owner TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT NOT NULL, digest TEXT NOT NULL, status TEXT NOT NULL, result TEXT, code INTEGER, updated BIGINT NOT NULL, PRIMARY KEY(owner,request_id));
       CREATE TABLE IF NOT EXISTS harness_events (seq BIGSERIAL PRIMARY KEY, owner TEXT NOT NULL, run_id TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, created BIGINT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_harness_events_owner ON harness_events(owner,seq);
+      CREATE TABLE IF NOT EXISTS twitter_jobs (owner TEXT NOT NULL, run_id TEXT NOT NULL, job_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,job_id));
+      CREATE INDEX IF NOT EXISTS idx_twitter_jobs_owner_run ON twitter_jobs(owner,run_id);
+      CREATE TABLE IF NOT EXISTS line_threads (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,character));
+      CREATE TABLE IF NOT EXISTS character_memories (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,character));
+      CREATE TABLE IF NOT EXISTS twitter_posts (owner TEXT NOT NULL, run_id TEXT NOT NULL, post_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,post_id));
+      CREATE TABLE IF NOT EXISTS game_logs (owner TEXT NOT NULL, run_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id));
+
+      WITH valid_games AS MATERIALIZED (
+        SELECT key,value::jsonb AS state,updated FROM records
+        WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb')
+      )
+      INSERT INTO twitter_jobs(owner,run_id,job_id,value,updated)
+      SELECT substring(r.key from 6),COALESCE(r.state->>'runId',''),job.key,job.value::text,r.updated
+      FROM valid_games r CROSS JOIN LATERAL jsonb_each(COALESCE(r.state->'twitter'->'jobs','{}'::jsonb)) job
+      ON CONFLICT(owner,run_id,job_id) DO NOTHING;
+
+      WITH valid_games AS MATERIALIZED (
+        SELECT key,value::jsonb AS state FROM records
+        WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb')
+      )
+      UPDATE records r SET value=(v.state #- '{twitter,jobs}')::text
+      FROM valid_games v WHERE r.key=v.key AND v.state->'twitter' ? 'jobs';
     `);
   }
   ready() { return this.initialized; }

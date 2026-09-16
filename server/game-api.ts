@@ -212,10 +212,18 @@ async function performPOST(req: Request) {
       if (!a.text.trim() && !actionText) throw Error("請輸入台詞或動作。");
       if (!["line", "talk"].includes(a.channel)) throw Error("對話管道無效。");
       if(a.channel==='line'&&!socialAppEnabled(old,'line'))throw Error('LINE 已停用。');
-      const execute=async(onPartial?:Parameters<typeof converse>[6],signal?:AbortSignal)=>{
-      const result = await converse(old, c, a.character, a.text.trim(), a.channel, actionText, onPartial,signal);
+      const execute=async(onPartial?:Parameters<typeof converse>[6],signal?:AbortSignal,onAccepted?:(state:GameState)=>void)=>{
+      let baseline=old;
+      if(a.channel==='line'){
+        const sent=structuredClone(old),now=Date.now();
+        sent.messages[a.character]=[...(sent.messages[a.character]??[]),{id:crypto.randomUUID(),phase:sent.phase,from:'player',text:a.text.trim(),date:sent.date,created:now,readByCharacterAt:now}].slice(-100);
+        sent.revision++;
+        baseline=await commitConcurrent(id,sent,old,true);
+        onAccepted?.(baseline);
+      }
+      const result = await converse(baseline, c, a.character, a.text.trim(), a.channel, actionText, onPartial,signal,a.channel==='line');
       if(a.channel==='talk'){const image=await illustrateScene(result.state,c,false,signal);result.notice=image.notice;}
-      result.state=await commitConcurrent(id, result.state, old,a.channel==='line');
+      result.state=await commitConcurrent(id, result.state, baseline,a.channel==='line');
       // The committed game state is the user-visible completion boundary. A
       // transcript is auxiliary history and must not leave LINE saying
       // "sending/replying" while it waits for another pool checkout.
@@ -246,7 +254,7 @@ async function performPOST(req: Request) {
             const send=(event:string,data:unknown)=>{if(!closed)controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(withoutTwitter(data))}\n\n`));};
             send('start',{});
             const heartbeat=setInterval(()=>{if(!closed)controller.enqueue(encoder.encode(': keepalive\n\n'));},10000);
-            void execute(reply=>send('delta',reply),AbortSignal.any([req.signal,abort.signal]))
+            void execute(reply=>send('delta',reply),AbortSignal.any([req.signal,abort.signal]),state=>send('accepted',{state}))
               .then(result=>send('done',result))
               .catch(e=>send('error',{error:e instanceof Error?e.message:'串流失敗，請重試。',...(e instanceof ProgressConflictError?{code:e.code}:{})}))
               .finally(()=>{clearInterval(heartbeat);if(!closed){closed=true;controller.close();}});

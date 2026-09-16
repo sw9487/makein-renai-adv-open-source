@@ -13,18 +13,56 @@ import {settleCommittedState} from './harness-request';
 import {appendEvent,notifyEvents} from './harness-events';
 import {withoutTwitter} from '../core/twitter';
 import {prompt} from './prompt';
+import type {DatabaseExecutor} from './database';
 export { bindings, db };
 export class ProgressConflictError extends Error{
  readonly code='PROGRESS_CONFLICT';
+}
+function gameCore(state:GameState){
+ const stored=structuredClone(state);
+ if(stored.twitter)delete stored.twitter.jobs;
+ return stored;
+}
+async function hydrateGame(owner:string,state:GameState,executor:DatabaseExecutor=db()){
+ const runId=state.runId??'';
+ const jobs=await executor.query<{job_id:string;value:string}>('SELECT job_id,value FROM twitter_jobs WHERE owner=? AND run_id=?',[owner,runId]);
+ if(state.twitter&&(state.twitter.jobs!==undefined||jobs.rows.length))state.twitter.jobs={...state.twitter.jobs,...Object.fromEntries(jobs.rows.map(row=>[row.job_id,JSON.parse(row.value)]))};
+ return state;
+}
+const commitQueues=new Map<string,Promise<void>>();
+async function serializeCommit<T>(owner:string,work:()=>Promise<T>){
+ const previous=commitQueues.get(owner)??Promise.resolve();let release!:()=>void;
+ const current=new Promise<void>(resolve=>{release=resolve;});commitQueues.set(owner,current);
+ await previous;
+ try{return await work();}
+ finally{release();if(commitQueues.get(owner)===current)commitQueues.delete(owner);}
+}
+async function syncMap(executor:DatabaseExecutor,table:string,idColumn:string,owner:string,runId:string,next:Record<string,unknown>,old:Record<string,unknown>){
+ for(const id of Object.keys(old))if(!(id in next))await executor.query(`DELETE FROM ${table} WHERE owner=? AND run_id=? AND ${idColumn}=?`,[owner,runId,id]);
+ for(const [id,value] of Object.entries(next)){
+  if(JSON.stringify(old[id])===JSON.stringify(value))continue;
+  await executor.query(`INSERT INTO ${table}(owner,run_id,${idColumn},value,updated) VALUES(?,?,?,?,?) ON CONFLICT(owner,run_id,${idColumn}) DO UPDATE SET value=excluded.value,updated=excluded.updated`,[owner,runId,id,JSON.stringify(value),Date.now()]);
+ }
 }
 export async function read<T>(key: string, fallback: T): Promise<T> {
   const row = await db()
     .prepare("SELECT value FROM records WHERE key = ?")
     .bind(key)
     .first<{ value: string }>();
-  return row ? JSON.parse(row.value) : fallback;
+  if(!row)return fallback;
+  const value=JSON.parse(row.value);
+  return (key.startsWith('game:')?await hydrateGame(key.slice(5),value):value) as T;
 }
 export async function write(key: string, value: unknown) {
+  if(key.startsWith('game:')){
+    const owner=key.slice(5),state=value as GameState,runId=state.runId??'';
+    await db().transaction(async tx=>{
+      await tx.query('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated=excluded.updated',[key,JSON.stringify(gameCore(state)),Date.now()]);
+      await tx.query('DELETE FROM twitter_jobs WHERE owner=?',[owner]);
+      for(const [jobId,job] of Object.entries(state.twitter?.jobs??{}))await tx.query('INSERT INTO twitter_jobs(owner,run_id,job_id,value,updated) VALUES(?,?,?,?,?)',[owner,runId,jobId,JSON.stringify(job),Date.now()]);
+    });
+    return;
+  }
   if(key.startsWith('image-job:')){
     const owner=key.slice('image-job:'.length),job=value as any;
     await db().transaction(async tx=>{
@@ -42,8 +80,12 @@ export async function write(key: string, value: unknown) {
 }
 /** Initial GET requests may run simultaneously; only the first generated run may become the save. */
 export async function insertInitialGame(owner:string,state:GameState){
- const result=await db().query<{key:string}>('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO NOTHING RETURNING key',['game:'+owner,JSON.stringify(state),Date.now()]);
- return result.rows.length===1;
+ return db().transaction(async tx=>{
+  const result=await tx.query<{key:string}>('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO NOTHING RETURNING key',['game:'+owner,JSON.stringify(gameCore(state)),Date.now()]);
+  if(result.rows.length!==1)return false;
+  for(const [jobId,job] of Object.entries(state.twitter?.jobs??{}))await tx.query('INSERT INTO twitter_jobs(owner,run_id,job_id,value,updated) VALUES(?,?,?,?,?)',[owner,state.runId??'',jobId,JSON.stringify(job),Date.now()]);
+  return true;
+ });
 }
 export function sourceContent(): Content {
   const config = runtimeConfig();
@@ -64,9 +106,20 @@ export async function content() {
   return hydratePublicAccounts(hydrateContentDefaults(hydrateCharacterDefaults(result,requestLanguage()),requestLanguage()),requestLanguage());
 }
 export async function commit(owner: string, s: GameState, old: GameState,options?:{resetRun?:boolean}) {
-  await db().transaction(async tx=>{
-    const result=await tx.query<{key:string}>('UPDATE records SET value=?,updated=? WHERE key=? AND value=? RETURNING key',[JSON.stringify(s),Date.now(),'game:'+owner,JSON.stringify(old)]);
+  // Completed workers are durable scheduling markers, but their full candidate
+  // snapshots are useless after their time slot. Keeping those arrays made one
+  // active save exceed 1.6 MB and multiplied every compare-and-swap transfer.
+  for(const job of Object.values(s.twitter?.jobs??{})){
+    if(job.status==='done'&&`${job.date}:${job.phase}`<`${s.date}:${s.phase}`)
+      job.posts=job.trigger?.postId?[job.trigger.postId]:[];
+  }
+  await serializeCommit(owner,()=>db().transaction(async tx=>{
+    const stored=JSON.stringify(gameCore(s)),oldStored=JSON.stringify(gameCore(old)),oldLegacy=JSON.stringify(old);
+    const result=await tx.query<{key:string}>('UPDATE records SET value=?,updated=? WHERE key=? AND (value=? OR value=?) RETURNING key',[stored,Date.now(),'game:'+owner,oldStored,oldLegacy]);
     if(result.rows.length!==1)throw new ProgressConflictError('進度已在另一個分頁更新，請重新整理。');
+    const reset=!!options?.resetRun||old.runId!==s.runId,runId=s.runId??'';
+    if(reset)await tx.query('DELETE FROM twitter_jobs WHERE owner=?',[owner]);
+    await syncMap(tx,'twitter_jobs','job_id',owner,runId,s.twitter?.jobs??{},reset?{}:old.twitter?.jobs??{});
     if(options?.resetRun)await tx.query('DELETE FROM records WHERE key=?',['image-job:'+owner]);
     await settleCommittedState(owner,s,tx);
     await appendEvent(owner,s.runId??'',JSON.stringify(old.messages)!==JSON.stringify(s.messages)?'line.received':'game.changed',{revision:s.revision},tx);
@@ -79,7 +132,7 @@ export async function commit(owner: string, s: GameState, old: GameState,options
         await tx.query('INSERT OR IGNORE INTO records(key,value,updated) VALUES(?,?,?)',[key,identity,Date.now()]);
       }
     }
-  });
+  }));
   notifyEvents(owner);
 }
 /** A new story replaces the old run, but background LINE/Twitter writes may finish while its scene is prepared. */
@@ -121,10 +174,10 @@ export async function saveGameSlot(owner:string,slot:number,baseline:GameState){
  return db().transaction(async tx=>{
   const row=(await tx.query<{value:string}>('SELECT value FROM records WHERE key=?',['game:'+owner])).rows[0];
   if(!row)throw Error('找不到進度。');
-  const current=JSON.parse(row.value) as GameState;
+  const current=await hydrateGame(owner,JSON.parse(row.value) as GameState,tx);
   if(current.runId!==baseline.runId||(current.sceneRevision??current.revision)!==(baseline.sceneRevision??baseline.revision))
    throw new ProgressConflictError(prompt('game.error.sceneChanged'));
-  await tx.query('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated=excluded.updated',[`save:${owner}:${slot}`,row.value,Date.now()]);
+  await tx.query('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated=excluded.updated',[`save:${owner}:${slot}`,JSON.stringify(current),Date.now()]);
   return current;
  });
 }

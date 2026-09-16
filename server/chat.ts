@@ -31,6 +31,7 @@ export async function converse(
   action: string = '',
   onPartial?: (reply:CharacterReply)=>void,
   signal?: AbortSignal,
+  lineMessagePersisted=false,
 ) {
   const s = structuredClone(state);
   if (s.ended) throw Error("故事已結束。");
@@ -177,12 +178,12 @@ export async function converse(
     s.flags.push(reward);
   }
   if (channel === "line") {
-    const readAt=Date.now();
-    const playerMessage={ id:crypto.randomUUID(),phase:s.phase,from: "player", text, date: s.date,readByCharacterAt:readAt,conversationClosed:performance.conversationClosed };
+    const now=Date.now();
+    const playerMessage={ id:crypto.randomUUID(),phase:s.phase,from: "player", text, date: s.date,created:now,readByCharacterAt:now,conversationClosed:performance.conversationClosed };
     s.messages[id] = [
       ...(s.messages[id] ?? []),
-      playerMessage,
-      ...(performance.respond===false?[]:[{ id:crypto.randomUUID(),phase:s.phase,from: id, text: reply, date: s.date,conversationClosed:performance.conversationClosed,expectsReply:!performance.conversationClosed, ...(imageResult.url?{image:imageResult.url,imageCaption:imageResult.caption}:{}) }]),
+      ...(lineMessagePersisted?[]:[playerMessage]),
+      ...(performance.respond===false?[]:[{ id:crypto.randomUUID(),phase:s.phase,from: id, text: reply, date: s.date,created:Date.now(),conversationClosed:performance.conversationClosed,expectsReply:!performance.conversationClosed, ...(imageResult.url?{image:imageResult.url,imageCaption:imageResult.caption}:{}) }]),
     ].slice(-100);
   } else {
     const expression=performance.expression&&character.sprites[performance.expression]?performance.expression:'normal';
