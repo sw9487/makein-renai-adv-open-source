@@ -147,6 +147,21 @@ test('proactive LINE may generate a people-free lifestyle image without characte
  const result=await requestImage(createGame(defaultContent),defaultContent,'line','今天的草莓蛋糕很好吃','mitsuki',undefined,undefined,{allowCharacterlessLine:true,proactiveLine:true});
  expect(result.url).toMatch(/^\/api\/media\/.+\.png$/);expect(result.caption).toBe('今天吃到的蛋糕');expect(planCalls).toBe(1);expect(sdCalls).toBe(1);
 });
+test('one model turn cannot trigger more than one paid image generation',async()=>{
+ setup();await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'test'});
+ await saveImageSettings({...await imageSettings(),enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example',key:''});
+ let sdCalls=0;
+ setFetch((async(input:any)=>{
+  if(String(input).startsWith('https://sd.example')){sdCalls++;return new Response('',{status:503});}
+  const plan=(caption:string)=>({prompt:'garden portrait',negative_prompt:'blurry',caption,loras:[{name:'character model',weight:.8}]});
+  return Response.json({choices:[{message:{tool_calls:[
+   {id:'first',function:{name:'generate_image',arguments:JSON.stringify(plan('first'))}},
+   {id:'second',function:{name:'generate_image',arguments:JSON.stringify(plan('second'))}},
+  ]}}]});
+ }) as unknown as typeof fetch);
+ const result=await requestImage(createGame(defaultContent),defaultContent,'line','send a photo','kaju');
+ expect(sdCalls).toBe(0);expect(result.notice).toBeDefined();
+});
 test('LINE evaluates the latest message without forcing another image after a previous photo',async()=>{
  setup();await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'test'});
  await saveImageSettings({...await imageSettings(),enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example',key:''});

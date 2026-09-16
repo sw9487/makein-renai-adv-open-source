@@ -465,7 +465,7 @@ export default function Editor() {
       let current=await currentResponse.json();
       if(currentResponse.ok&&!current.state){currentResponse=await fetch('/api/game',{cache:'no-store'});current=await currentResponse.json();}
       if(!currentResponse.ok||!current.state)throw Error(current.error||t('editor.public.errorProgress'));
-      const response=await fetch('/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'new',revision:current.state.revision,runId:current.state.runId})});
+      const response=await fetch('/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'new',revision:current.state.revision,runId:current.state.runId,requestId:crypto.randomUUID()})});
       const result=await response.json();
       if(!response.ok||!result.state)throw Error(result.error||t('editor.public.errorNewStory'));
       window.location.assign('/');

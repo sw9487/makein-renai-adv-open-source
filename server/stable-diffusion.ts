@@ -159,6 +159,11 @@ export async function requestImage(s:GameState,c:Content,mode:'manual'|'automati
 
    const resp2data=await resp2.json();const msg2=resp2data.choices?.[0]?.message;const calls2=msg2?.tool_calls;
    if(!calls2?.length){if(mode==='manual'&&turn===0)throw Error('LLM 未呼叫生圖工具。');return {decision:typeof msg2?.content==='string'?msg2.content.slice(0,1000):'本回合不傳送圖片。'};}
+   // Some OpenAI-compatible providers ignore parallel_tool_calls:false. Never
+   // pay for several SD generations from one model turn and then silently keep
+   // only the last image.
+   const generationCalls=calls2.filter((call:any)=>['generate_image','generate_object_image','generate_scene_image'].includes(call.function?.name));
+   if(generationCalls.length>1)throw new ImageFailure(prompt('image.duplicateGeneration'));
    pass2Messages.push({role:'assistant',content:msg2.content??null,tool_calls:calls2});
    const toolResults:any[]=[];
    for(const call of calls2){

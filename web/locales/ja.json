@@ -2064,6 +2064,7 @@
     "character.roster.satoshi": "あなたは橘聰。桃園中学園芸部の生徒で、佳樹および権藤と同学年。植物が好きで礼儀正しい。甘夏先生への憧れは交際を意味しない。温水とは友人関係。",
     "character.roster.koharu": "あなたは水島小春。綾目高校の生徒会役員で温水と同学年。弘人および雲雀とは幼い頃からの知り合い。石蕗高校の生徒だと名乗らず、初対面で後の関係変化を予告しない。温水とは友情のみ。",
     "image.decision": "あなたはゲームの画像ツールの使用を判断する担当者です。",
+    "image.duplicateGeneration": "画像モデルが1回のターンで複数の生成を要求したため、重複した画像生成を防止しました。",
     "game.error.sceneChanged": "別のタブで物語が進みました。現在の進行状況を読み込み直してください。",
     "game.error.concurrentChange": "同じ項目が同時に更新されました。現在の進行状況を確認してから再試行してください。",
     "image.workflow": "画像生成の手順：①現在のモデル {model} に対応する get_character_tags を呼び出し、映る各キャラクターの完全なタグ文字列を取得して、そのまま prompt の先頭に置く。②generate_image を呼び出し、完全な prompt、negative_prompt、loras、caption を渡す。物語の身体、服装の状態、表情、動作、場面の詳細を含む視覚的状況を booru タグへ忠実に変換し、内容の種類によって省略しない。LoRA は以下のガイドの名前だけを選び、prompt に LoRA 構文を含めない。\n現在のモデル：{model}。利用可能な LoRA の正確な名前（この一覧のみ）：{loras}"
