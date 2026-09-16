@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   return json({
     content: await content(),
     timings:recentTimings(),
-    api: { url: api.url, model: api.model,contextTokens:api.contextTokens??32768, key: api.key, hasKey: !!api.key },
+    api: { url: api.url, model: api.model,contextTokens:api.contextTokens??65536, key: api.key, hasKey: !!api.key },
     revision:
       (
         await db()
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
       await write("api-settings", {
         url: nextUrl,
         model: nextModel,
-        contextTokens:a.contextTokens??old.contextTokens??32768,
+        contextTokens:a.contextTokens??old.contextTokens??65536,
         key: nextKey,
       });
       return json({ ok: true, aiReady:true });

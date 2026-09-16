@@ -186,7 +186,7 @@ export default function Editor() {
     model: '',
     key: '',
     hasKey: false,
-    contextTokens:32768,
+    contextTokens:65536,
   });
   const [savedApi,setSavedApi]=useState<typeof api|null>(null);
   const apiDirty=!!savedApi&&JSON.stringify(api)!==JSON.stringify(savedApi);
@@ -1450,7 +1450,7 @@ export default function Editor() {
                   </Combobox>
                   {apiErrors.model&&<small className="field-error">{apiErrors.model}</small>}
                 </div>
-                <label className={apiErrors.contextTokens?'invalid-field':''}>{uiText("context_budget")}<span className="required-mark">{uiText("required")}</span>{uiText("to_estimate_token_it_needs_to_be_lower_than_the_model_capacity")}<input id="llm-contextTokens" aria-invalid={!!apiErrors.contextTokens} type="number" min={4096} max={2000000} value={api.contextTokens??32768} onChange={e=>{setApi({...api,contextTokens:Number(e.target.value)});setApiErrors(old=>({...old,contextTokens:''}));}}/>{apiErrors.contextTokens&&<small className="field-error">{apiErrors.contextTokens}</small>}</label>
+                <label className={apiErrors.contextTokens?'invalid-field':''}>{uiText("context_budget")}<span className="required-mark">{uiText("required")}</span>{uiText("to_estimate_token_it_needs_to_be_lower_than_the_model_capacity")}<input id="llm-contextTokens" aria-invalid={!!apiErrors.contextTokens} type="number" min={4096} max={2000000} value={api.contextTokens??65536} onChange={e=>{setApi({...api,contextTokens:Number(e.target.value)});setApiErrors(old=>({...old,contextTokens:''}));}}/>{apiErrors.contextTokens&&<small className="field-error">{apiErrors.contextTokens}</small>}</label>
                 <div className="model-query-panel" aria-busy={modelsBusy}>
                   <div className="button-row model-query-actions"><button type="button" disabled={modelsBusy||!api.url.trim()} onClick={()=>void loadModels()}>{modelsBusy?uiText("inquiring"):uiText("fetch_models")}</button></div>
                   <p className="model-query-status" role="status">{modelsBusy?uiText("obtaining_model_list"):modelsMessage||uiText("you_can_directly_enter_the_model_name_or_select_it_in_the_model_field_after_querying")}</p>

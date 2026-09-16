@@ -55,7 +55,7 @@ test('LLM settings reject missing required connection fields', async () => {
     globalThis.fetch=Object.assign(async(_url:unknown,init?:RequestInit)=>{const body=JSON.parse(String(init?.body));expect(body.tools[0].function.name).toBe('report_gender');expect(body.messages[0].content.filter((part:any)=>part.type==='image_url')).toHaveLength(1);return Response.json({choices:[{message:{tool_calls:[{function:{name:'report_gender',arguments:JSON.stringify({gender:'girl'})}}]}}]});},{preconnect:original.preconnect});
     const save = (body: Record<string, unknown>) => POST(new Request('http://localhost:9487/api/editor', {
       method: 'POST', headers: { origin: 'http://localhost:9487' },
-      body: JSON.stringify({ type: 'api', contextTokens: 32768, ...body }),
+      body: JSON.stringify({ type: 'api', contextTokens: 65536, ...body }),
     }));
     for (const body of [
       { url: '', model: 'model', key: 'key' },

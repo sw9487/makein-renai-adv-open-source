@@ -14,7 +14,7 @@ test('saving AI settings verifies VLM and tool calling in exactly one request be
  const dir=mkdtempSync(join(tmpdir(),'editor-ai-')),close=initializeRuntime({dataDir:dir,port:9487,env:{}});let calls=0;
  try{
   globalThis.fetch=Object.assign(async(url:unknown,init?:RequestInit)=>{calls++;expect(String(url)).toBe('https://model.example/v1/chat/completions');const body=JSON.parse(String(init?.body));expect(body.tools[0].function.name).toBe('report_gender');expect(body.messages[0].content.filter((part:any)=>part.type==='image_url')).toHaveLength(1);return Response.json({choices:[{message:{tool_calls:[{function:{name:'report_gender',arguments:'{"gender":"girl"}'}}]}}]});},{preconnect:originalFetch.preconnect});
-  const response=await POST(request({type:'api',url:'https://model.example/v1',model:'vision-tool-model',key:'secret',contextTokens:32768}));
+  const response=await POST(request({type:'api',url:'https://model.example/v1',model:'vision-tool-model',key:'secret',contextTokens:65536}));
   expect(response.status).toBe(200);expect(calls).toBe(1);expect(await read('api-settings',null)).toMatchObject({model:'vision-tool-model',key:'secret'});
  }finally{close();rmSync(dir,{recursive:true,force:true});}
 });

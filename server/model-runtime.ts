@@ -42,7 +42,7 @@ export async function modelFetch(endpoint:string,init:ApiRequestInit){
     });
     if(!found)source.messages.unshift({role:'system',content:instruction});
   }
-  const body=budgetRequest(source,settings.contextTokens??32768);
+  const body=budgetRequest(source,settings.contextTokens??65536);
   return timed('llm.request',async()=>{
     let response:Response;
     try{response=await apiFetch(endpoint,{...init,body:JSON.stringify(body)});}

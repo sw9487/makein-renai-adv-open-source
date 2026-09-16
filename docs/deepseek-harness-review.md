@@ -78,7 +78,7 @@
 - `server/harness-request.ts`：持久 requestId、輸入摘要、同請求合併、完成結果重播、結果不明時拒絕自動重送。狀態提交與 request settlement 在同一 SQLite 交易。串流的觀察者斷線不取消已接手的工作。
 - `server/harness-events.ts`：持久事件序號、單一 SSE、Last-Event-ID 補送、每玩家保留最近 10000 則事件，過舊游標要求快照同步。LINE 已移除固定輪詢；手動圖片仍保留工作結果查詢作為等待／復原機制。
 - `server/tool-registry.ts`：生圖、知識讀取、主動 LINE 使用共用輸入／結果驗證與執行入口。角色／劇情輸出仍保留原有專門驗證器，避免削弱說話、旁白與選項規則。
-- `server/model-runtime.ts`：聊天、劇情、知識、搜尋決策與生圖決策共用模型傳輸與錯誤分類；預設 32768 token 的可調估算預算，保留 system 與本次輸入、整組移除較舊工具交換，不自動重試外部請求。
+- `server/model-runtime.ts`：聊天、劇情、知識、搜尋決策與生圖決策共用模型傳輸與錯誤分類；預設 65536 token 的可調估算預算，保留 system 與本次輸入、整組移除較舊工具交換，不自動重試外部請求。
 - `server/memory-view.ts`：為模型挑選有來源 ID 的相關重要記憶；被移出近期區的原始紀錄另存玩家 SQLite，不随 prompt 裁減一起消失。這版使用確定性檢索／裁減，不宣稱已完成 LLM 語意摘要，也不把估算當作模型官方 tokenizer。
 - 新增 `tests/harness.test.ts`，涵蓋去重、衝突、重啟結果不明、原子提交、讀檔隔離、事件重播、串流斷線、工具關閉及模型錯誤。
 

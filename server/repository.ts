@@ -266,7 +266,7 @@ export async function apiSettings(): Promise<ApiSettings> {
   return {
     url: stored.url ?? String(bindings.AI_API_URL ?? ""),
     key: stored.key ?? String(bindings.AI_API_KEY ?? ""),
-    contextTokens:stored.contextTokens??32768,
+    contextTokens:stored.contextTokens??65536,
     model: stored.model ?? String(bindings.AI_MODEL ?? ""),
   };
 }
