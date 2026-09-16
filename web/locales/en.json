@@ -2072,6 +2072,7 @@
     "game.error.sceneChanged": "The story advanced in another tab. Reload the current progress before continuing.",
     "game.error.concurrentChange": "The same field changed at the same time. Review the current progress before trying again.",
     "image.workflow": "Image workflow: (1) Call get_character_tags for each visible character to obtain the complete tag string for the current model {model}, then copy it verbatim at the start of prompt. (2) Call generate_image with the complete prompt, negative_prompt, loras and caption. Faithfully translate the story's complete visual context into booru tags, including body, clothing state, expression, actions and scene details, without omissions based on content type. Choose LoRA names only from the guide below. Do not include LoRA syntax in prompt.\nCurrent model: {model}. Exact available LoRA names (only this list): {loras}",
-    "twitter.blockTrigger": "The player just blocked your Twitter account, but you can still reach the player through your exchanged LINE contact. Decide whether to ask about it on LINE from personality, affection, relationship memories, and friendship importance. Never mention system fields or numeric scores."
+    "twitter.blockTrigger": "The player just blocked your Twitter account, but you can still reach the player through your exchanged LINE contact. Decide whether to ask about it on LINE from personality, affection, relationship memories, and friendship importance. Never mention system fields or numeric scores.",
+    "error.characterPrivacy": "Only game characters can change their own Twitter account privacy."
   }
 }

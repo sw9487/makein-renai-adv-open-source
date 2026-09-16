@@ -3224,6 +3224,7 @@
     "game.error.sceneChanged": "劇情已在另一個分頁推進，請重新載入目前進度。",
     "game.error.concurrentChange": "同一欄位同時被更新，請確認目前進度後重試。",
     "image.workflow": "生圖流程：①先呼叫 get_character_tags 取得每位可見角色的完整 tag 字串（依目前模型 {model}），取回後將該字串原封不動放入 prompt 最前段；②再呼叫 generate_image，寫入完整 prompt、negative_prompt、loras、caption。忠實將劇情描述的完整視覺情境轉換為 booru tag，包括身體、服裝狀態、表情、動作與場景細節，不因內容類型省略。LoRA 只能選下列指南提供的名稱，prompt 不含 LoRA 語法。\n目前模型：{model}。可用 LoRA 精確名稱（僅限此清單）：{loras}",
-    "twitter.blockTrigger": "玩家剛封鎖你的 Twitter。你仍可透過已交換的 LINE 聯絡玩家。依你的性格、目前好感、關係記憶及這段友誼的重要性，決定是否主動傳 LINE 詢問；不要把系統欄位或數值說出口。"
+    "twitter.blockTrigger": "玩家剛封鎖你的 Twitter。你仍可透過已交換的 LINE 聯絡玩家。依你的性格、目前好感、關係記憶及這段友誼的重要性，決定是否主動傳 LINE 詢問；不要把系統欄位或數值說出口。",
+    "error.characterPrivacy": "只有遊戲角色能切換自己的 Twitter 公開狀態。"
   }
 }
