@@ -18,6 +18,7 @@ web/tsconfig.tsbuildinfo
 /content/downloads/lora.zip
 /content/downloads/lora-models/
 .migration-backup.sqlite
+/compose.local-9488.yaml
 
 # Public-release exclusions: do not publish book covers, public-account artwork,
 # or the removed erotic prompt reference even if they exist in a local source copy.
