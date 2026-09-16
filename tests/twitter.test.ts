@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {defaultContent} from '../core/content';
 import {createGame,act} from '../core/engine';
 import {socialSettings,twitterState,twitterView,canReadPost,withoutTwitter,twitterHashtags,twitterNotificationKey,twitterHasUnread,twitterOnlineProbability,twitterNotificationTokens,twitterTrends} from '../core/twitter';
-import {applyTwitterDecision,parseTwitterDecision,twitterApi,runTwitterJob,startTwitterSlot,resumeTwitter,twitterNewsCandidates,twitterNewsSourceWindow} from '../server/twitter';
+import {applyTwitterDecision,parseTwitterDecision,publishCharacterTwitterPost,twitterApi,runTwitterJob,startTwitterSlot,resumeTwitter,twitterNewsCandidates,twitterNewsSourceWindow} from '../server/twitter';
 import {assets,initializeRuntime} from '../server/runtime';
 import {write,read} from '../server/repository';
 import type {GameState} from '../core/types';
@@ -146,6 +146,14 @@ test('NPC-to-NPC follows and interactions are independent and cannot impersonate
  expect(p.likes).toEqual({anna:true});expect(s.twitter?.following.anna.kaju).toBe(true);expect(s.twitter?.following.komari?.kaju).not.toBe(true);
  expect(()=>parseTwitterDecision('{"action":"delete_everything"}')).toThrow();
  expect(()=>parseTwitterDecision(JSON.stringify({action:'reply',target:p.id,text:'附圖回覆',image:true}))).toThrow();
+});
+test('character broadcast mentions expand to real mutual-friend handles',()=>{
+ const s=createGame(defaultContent),t=s.twitter!;
+ (t.following.kaju??={}).asami=true;(t.following.asami??={}).kaju=true;
+ (t.following.kaju??={})['official-library']=true;
+ const post=publishCharacterTwitterPost(s,defaultContent,'kaju','大家晚安 @all')!;
+ expect(post.text).toContain('@kazuhiko');expect(post.text).toContain('@asami');
+ expect(post.text).not.toContain('@all');expect(post.text).not.toContain('@toyohashi_lib');
 });
 test('Twitter interactions are merged into character memory for later LINE and scene chat',()=>{
  const s=createGame(defaultContent),root=applyTwitterDecision(s,defaultContent,'anna',decision('post','','今天做了鬆餅。'))!;

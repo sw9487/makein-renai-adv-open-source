@@ -142,9 +142,16 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
  }
 }
 
+export function expandCharacterAudienceMentions(s:GameState,c:Content,actor:string,text:string){
+ const t=twitterState(s,c);
+ if(!/(?<![A-Za-z0-9_])@all(?![A-Za-z0-9_])/i.test(text))return text;
+ const handles=Object.entries(t.accounts).filter(([id])=>id!==actor&&t.following[actor]?.[id]&&t.following[id]?.[actor]&&!twitterBlocked(t,actor,id)&&!twitterMentions(t,text,id)).map(([,account])=>'@'+account.handle);
+ return text.replace(/(?<![A-Za-z0-9_])@all(?![A-Za-z0-9_])/gi,handles.join(' ')).replace(/[ \t]{2,}/g,' ').trim();
+}
+
 export function publishCharacterTwitterPost(s:GameState,c:Content,actor:string,text:string,image?:{url?:string;caption?:string}){
  if(!socialAppEnabled(s,'twitter'))return;
- const clean=text.trim();if(!clean||clean.length>280||actor==='kazuhiko')return;
+ const clean=expandCharacterAudienceMentions(s,c,actor,text.trim());if(!clean||clean.length>280||actor==='kazuhiko')return;
  const post=applyTwitterDecision(s,c,actor,{action:'post',target:'',text:clean,image:false});
  if(post&&image?.url)post.image=image.url;
  if(post)queueOnlineReactions(s,c,{action:'post',target:'',text:clean,image:false},post,actor);
