@@ -6,7 +6,6 @@
                     "node":  "\u003e=22.13.0"
                 },
     "scripts":  {
-                    "dev":  "vite --host 127.0.0.1 --port 9488",
                     "build":  "vite build"
                 },
     "dependencies":  {

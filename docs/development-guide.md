@@ -4,7 +4,7 @@
 
 ## 本機開發與真實資料
 
-從專案根目錄執行 `npm ci`、`npm ci --prefix web`，再使用 `bun run dev`（Vite 9488、API 9487）或 `bun run build && bun run start`（預設 9487）。`package.json` 列有完整檢查指令。開發資料庫、上傳和密鑰不是版控內容；Editor 儲存內容只寫本機玩家資料目錄。不要把測試與實機診斷指向玩家存檔。
+從專案根目錄執行 `npm ci`、`npm ci --prefix web`，再使用 `npm run dev`（預設 9487）啟動開發伺服器。前端由 `vite build` 打包到 `dist/client`，由伺服器在 9487 提供。`package.json` 列有完整檢查指令。開發資料庫、上傳和密鑰不是版控內容；Editor 儲存內容只寫本機玩家資料目錄。不要把測試與實機診斷指向玩家存檔。
 
 ## LLM payload 規則
 

@@ -1,6 +1,6 @@
 # 遊戲補充知識 harness
 
-補充知識頁可新增、編輯、匯入文字資料夾、啟用與停用。開發模式存於專案 `knowledge/`；安裝版存於遊戲資料目錄 `knowledge/`。此資料獨立於還原內容預設值，不會隨事件重設而消失。
+補充知識頁可新增、編輯、匯入文字資料夾、啟用與停用。開發模式存於專案 `knowledge/`；執行時存於遊戲資料目錄 `knowledge/`。此資料獨立於還原內容預設值，不會隨事件重設而消失。
 
 採用 https://agentskills.io/specification 的 YAML frontmatter 與資料夾慣例：
 

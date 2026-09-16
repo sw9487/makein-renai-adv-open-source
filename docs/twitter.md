@@ -1,6 +1,6 @@
 # 遊戲內 Twitter：開發契約
 
-這是本機遊戲中的虛構社群，不連接真實 Twitter。實作入口是 `core/twitter.ts`、`core/twitter-public.ts`、`server/twitter.ts`、`web/components/twitter-panel.tsx`；本文取代先前指向不存在的「Twitter技術說明.md」連結。
+這是本機遊戲中的虛構社群，不連接真實 Twitter。實作入口是 `core/twitter.ts`、`core/twitter-public.ts`、`server/twitter.ts`、`web/components/twitter-panel.tsx`。
 
 ## API 與存檔
 

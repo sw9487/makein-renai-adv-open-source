@@ -36,7 +36,7 @@ Anyone wishing to reproduce, modify, publish, distribute, publicly transmit, or 
 - 小說第2卷試讀：https://shogakukan.tameshiyo.me/9784094530414
 - 小說第3卷試讀：https://shogakukan.tameshiyo.me/9784094530643
 
-多數人物立繪與封面由官方外部網址載入；新增四位角色使用本地圖片資產與 SVG 顯示裁切，來源如下。版權歸原權利人。使用者匯入圖片及公開npm發佈的授權由發佈者確認。
+多數人物立繪與封面由官方外部網址載入；新增四位角色使用本地圖片資產與 SVG 顯示裁切，來源如下。版權歸原權利人。使用者匯入圖片及公開散佈的授權由提供者確認。
 
 - `content/assets/sprites/riko/00000000-0000-4000-8000-000000000021.png`：白玉全身設定圖，https://bangumi.tv/character/158730/photo/10351 （頁面註記來源為原作官方帳號）。
 - `content/assets/sprites/archive/00000000-0000-4000-8000-000000000022.png`：櫻井局部肖像，第4卷第2章插圖，https://skythewood.blogspot.com/2023/01/too-many-losing-heroines-v4-chapter-2.html 。
