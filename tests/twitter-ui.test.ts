@@ -96,6 +96,13 @@ test('failed images can be retried and thread counts include nested replies with
  expect(source).toContain("setReplySort('liked')");
 });
 
+test('only the rendered Twitter image is part of the external image link',()=>{
+ const source=readFileSync(new URL('../web/components/twitter-panel.tsx',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../web/components/twitter.css',import.meta.url),'utf8');
+ expect(source.match(/className="tw-photo-link"/g)?.length).toBe(2);
+ expect(css).toContain('.tw-photo-link{display:block;width:fit-content;max-width:100%;line-height:0}');
+});
+
 test('official accounts render a verified badge and initial fallback without bundled artwork',()=>{
  const html=renderToStaticMarkup(createElement(I18nProvider,null,createElement(TwitterAccount,{id:'official',name:'豊橋市役所',handle:'toyohashi_city',color:'#16836b',avatar:'',isPrivate:false,verified:true,onlineLabel:'在線',onVisit:()=>{}})));
  expect(html).toContain('tw-verified');expect(html).toContain('認証済み');expect(html).toContain('豊橋市役所');expect(html).not.toContain('<img');
