@@ -60,7 +60,11 @@ export async function converse(
   const availableExpressions=channel==='line'?['normal']:characterExpressions.filter(key=>!!character.sprites[key]);
   const twitterEnabled=socialAppEnabled(s,'twitter');
   const lineEnabled=socialAppEnabled(s,'line')&&s.contacts.includes(id);
-  const availableActions=characterActionKinds.filter(kind=>kind==='line_message'?lineEnabled:twitterEnabled);
+  // A LINE turn already has exactly one user-visible LINE response. Exposing
+  // line_message here made the model repeat that response as a delayed action
+  // (and generate a second image) after the main reply had committed. Keep
+  // line_message for face-to-face talk, where it is genuinely cross-channel.
+  const availableActions=characterActionKinds.filter(kind=>kind==='line_message'?channel!=='line'&&lineEnabled:twitterEnabled);
   const twitter=twitterEnabled?twitterState(s,c):undefined;
   const twitterAccounts=twitter?Object.entries(twitter.accounts).filter(([accountId])=>accountId!==id):[];
   const mentionableFriends=twitter?twitterAccounts.filter(([accountId])=>!!twitter.following[id]?.[accountId]&&!!twitter.following[accountId]?.[id]&&!twitterBlocked(twitter,id,accountId)&&canReadTwitter(twitter,accountId,id)).map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,handle:account.handle})):[];
@@ -143,6 +147,11 @@ export async function converse(
     performance=onPartial&&response.headers.get('content-type')?.includes('text/event-stream')
       ?await streamCharacter(response,channel==='line',onPartial!,allowChoices)
       :parseCharacterReply(await response.json(),channel==='line',allowChoices);
+    // Providers do not all enforce a tool property's enum reliably. Apply the
+    // same invariant server-side so a forbidden same-channel action can never
+    // be persisted by the deferred worker.
+    if(channel==='line'&&lineMessagePersisted&&performance.actions?.some(action=>action.kind==='line_message'))
+      performance={...performance,actions:performance.actions.filter(action=>action.kind!=='line_message')};
     reply=performance.speech;
     mode = "ai";
   } else {

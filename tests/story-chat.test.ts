@@ -91,7 +91,7 @@ test('LINE can mark a message read without sending a character reply',async()=>{
  }finally{globalThis.fetch=originalFetch;close();if(resolve(dir).startsWith(resolve(tmpdir())))rmSync(dir,{recursive:true,force:true});}
 });
 
-test('LINE reply can follow the player, publish a post, and send an additional message in one turn',async()=>{
+test('LINE tool schema only exposes cross-platform Twitter actions',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'makein-line-actions-test-'));
  const close=initializeRuntime({dataDir:dir,port:19491,env:{AI_API_URL:'https://example.com/v1',AI_API_KEY:'test-only',AI_MODEL:'mock'}});
  const originalFetch=globalThis.fetch;
@@ -102,6 +102,7 @@ test('LINE reply can follow the player, publish a post, and send an additional m
   const t=twitterState(s,defaultContent);t.accounts.kazuhiko.private=false;(t.following.anna??={}).kazuhiko=false;
   const result=await converse(s,defaultContent,'anna','那你會追蹤我嗎？','line');
   expect(request.tools[0].function.parameters.properties.actions.items.properties.kind.enum).toContain('twitter_follow');
+  expect(request.tools[0].function.parameters.properties.actions.items.properties.kind.enum).not.toContain('line_message');
   expect(request.tools[0].function.parameters.properties.actions.items.properties.image.type).toBe('boolean');
   expect(request.messages[0].content).toContain('followingPlayer');
   expect(request.messages[0].content).toContain('\"mentionableFriends\":');
