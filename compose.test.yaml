@@ -1,0 +1,24 @@
+name: makein-test
+
+services:
+  postgres-test:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: "105114"
+      POSTGRES_DB: MAKEIN_TEST_DB
+    command: postgres -c max_connections=300
+    ports:
+      - "5450:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./docker/test-init.sql:/docker-entrypoint-initdb.d/10-test-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d MAKEIN_TEST_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  test_postgres_data:

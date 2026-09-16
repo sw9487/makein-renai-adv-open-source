@@ -46,9 +46,9 @@ afterEach(()=>{globalThis.fetch=originalFetch;close?.();close=undefined;if(dir)r
 function setup(){dir=mkdtempSync(join(tmpdir(),'makein-sd-'));close=initializeRuntime({dataDir:dir,port:9487,env:{}});}
 test('sampling defaults fill missing legacy fields and custom hires settings persist',async()=>{
  setup();
- expect(await imageSettings()).toMatchObject({sampler:'Euler a',scheduler:'Automatic',steps:25,cfg:5,hiresFix:true,upscaler:'R-ESRGAN 4x+ Anime6B',upscaleBy:2,hiresSteps:0,denoising:0.7});
+ expect(await imageSettings()).toMatchObject({modelFamily:'Pony',sampler:'Euler a',scheduler:'Automatic',steps:30,cfg:6,hiresFix:true,upscaler:'R-ESRGAN 4x+ Anime6B',upscaleBy:1.5,hiresSteps:0,denoising:0.45});
  await write('stable-diffusion',{sampler:'Euler a',steps:30});
- expect(await imageSettings()).toMatchObject({sampler:'Euler a',steps:25,scheduler:'Automatic',hiresFix:true});
+ expect(await imageSettings()).toMatchObject({modelFamily:'Pony',sampler:'Euler a',steps:30,scheduler:'Automatic',hiresFix:true});
  const custom={...await imageSettings(),scheduler:'Exponential',hiresFix:false,upscaleBy:1.5,hiresSteps:8,denoising:0.3};
  await saveImageSettings(custom);
  expect(await imageSettings()).toMatchObject({scheduler:'Exponential',hiresFix:false,upscaleBy:1.5,hiresSteps:8,denoising:0.3});
@@ -58,7 +58,7 @@ test('sampling and hires settings reach SD and disabling hires omits its options
  setup();
  let body:any;
  setFetch((async(_input:any,init:any)=>{body=JSON.parse(init.body);return Response.json({images:['iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5uoAAAAASUVORK5CYII=']});}) as unknown as typeof fetch);
- const settings={...await imageSettings(),enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example'};
+ const settings={...await imageSettings(),...modelDefaults('Illustrious'),modelFamily:'Illustrious' as const,enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example'};
  const plan={prompt:'garden',negative_prompt:'blurry',caption:'garden',loras:[]};
  await generateImage(plan,settings);
  expect(body.prompt).toBe(`${visualNovelPositive}, garden, BREAK, depth of field, volumetric lighting`);
@@ -69,7 +69,7 @@ test('sampling and hires settings reach SD and disabling hires omits its options
 });
 test('story and LINE use the selected preset in opposite orientations',async()=>{
  setup();await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'test'});
- await saveImageSettings({...await imageSettings(),enabled:true,checkpoint:'test-model.safetensors',automatic:true,width:768,height:1024,url:'https://sd.example',key:''});
+ await saveImageSettings({...await imageSettings(),...modelDefaults('Illustrious'),modelFamily:'Illustrious',enabled:true,checkpoint:'test-model.safetensors',automatic:true,width:768,height:1024,url:'https://sd.example',key:''});
  const dimensions:{width:number;height:number}[]=[];
  setFetch((async(input:any,init:any)=>{
   if(String(input).startsWith('https://sd.example')){const body=JSON.parse(init.body);dimensions.push({width:body.width,height:body.height});return new Response('',{status:503});}
@@ -183,7 +183,7 @@ test('LINE evaluates the latest message without forcing another image after a pr
 });
 test('LLM-selected prompts and LoRA reach remote SD; image persists',async()=>{
  setup();await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'test'});
- await saveImageSettings({...await imageSettings(),enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example/prefix',key:'secret'});
+ await saveImageSettings({...await imageSettings(),...modelDefaults('Illustrious'),modelFamily:'Illustrious',enabled:true,checkpoint:'test-model.safetensors',url:'https://sd.example/prefix',key:'secret'});
  let calls=0;setFetch((async(input:any,init:any)=>{calls++;if(calls===1)return Response.json({choices:[{message:{tool_calls:[{function:{name:'generate_image',arguments:JSON.stringify({prompt:'garden selfie',negative_prompt:'blurry',caption:'庭院',loras:[{name:'character model',weight:0.8}]})}}]}}]});
  expect(String(input)).toBe('https://sd.example/prefix/sdapi/v1/txt2img');expect(init.headers.Authorization).toBe('Bearer secret');expect(JSON.parse(init.body).prompt).toContain('<lora:character model:0.8>');
  return Response.json({images:['iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5uoAAAAASUVORK5CYII=']});}) as unknown as typeof fetch);
@@ -222,7 +222,7 @@ test('background image job survives caller disconnect and deduplicates until SD 
 
 test('model selection migrates legacy defaults and switches character triggers',async()=>{
  setup();await write('stable-diffusion',{guide:'old Illustrious only guide',cfg:9});
- expect(await imageSettings()).toMatchObject({modelFamily:'Illustrious',cfg:5,guide:sdProfiles.Illustrious.guide});
+ expect(await imageSettings()).toMatchObject({modelFamily:'Pony',cfg:6,guide:sdProfiles.Pony.guide});
  const old=await imageSettings();
  await saveImageSettings({...old,modelFamily:'Pony',checkpoint:'pony.safetensors'});
  expect(await imageSettings()).toMatchObject({...modelDefaults('Pony'),modelFamily:'Pony'});

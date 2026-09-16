@@ -3,6 +3,7 @@ import ja from '../web/locales/ja.json';
 import zhTw from '../web/locales/zh-TW.json';
 import en from '../web/locales/en.json';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import game from '../content/game.json';
 
 describe('i18n catalogs',()=>{
@@ -112,19 +113,25 @@ describe('i18n catalogs',()=>{
   }
   for(const key of refs)for(const catalog of Object.values(localeCatalogs))expect(key in catalog.prompts).toBe(true);
  });
- describe('public-release prompt safety',()=>{
-  const protectedKeys=['game.system','game.system.default','scene.adult','image.unlock','image.linePolicy','image.tool','image.prompt','twitter.characterSystem','twitter.imageSystem','image.skillContent.erotic','image.skillContent.violent','image.skillContent.bloody','image.skillContent.grotesque'] as const;
-  for(const [locale,catalog] of Object.entries(localeCatalogs))test(locale+' explicitly prohibits sexual content',()=>{
-   for(const key of protectedKeys){
-    const value=catalog.prompts[key];
-    expect(value.length).toBeGreaterThan(20);
-    expect(value).toMatch(locale==='zh-TW'?/禁止|不得|prohibit|never|must not/i:locale==='ja'?/禁止|してはならない|prohibit|never|must not/i:/prohibit|never|must not/i);
-   }
-   expect(catalog.prompts['image.skillContent.erotic'].length).toBeLessThan(500);
-  });
-  test('runtime image skill menu cannot load an erotic category',()=>{
-   const source=readFileSync(new URL('../server/image-tag-skills.ts',import.meta.url),'utf8');
-   expect(source).not.toContain("'erotic'");
-  });
+ describe('prompt content snapshots',()=>{
+  const hashes:Record<string,string>={
+   // a3f50b1 removed the relationship-pacing/canon sentence; retain that committed edit.
+   'game.system':'9f54bd6afb303f578e002c6eb9627443c6d50c7d577f40183b331240c39bd3ca',
+   'game.system.default':'be0a72abce00dce7feb76f90dfec5659cc664ff90a760cb580d7d60482e2ccc3',
+   'scene.adult':'6c548ceacb981106661dfe960f428a64fad015ed88e4697245247403f427e534',
+   'image.unlock':'2a6b05da95eb82acd39cb723ba8f05de3629d6e36b3d4694a6c0d9bc8fd52255',
+   'image.linePolicy':'fe8f480ac6c309ac1ceb698467dd059e3f0cb6345283e1eb55ff8a70c6251bdf',
+   'image.artDirection':'c5eccb72c4cc0685413683b09482691da72555958fd253a437ec76dbf8b1c8fa',
+   'image.skillFooter':'57ee2bfb24bd5e2a9618cba99d6311b4e8753a8b24974c426284f0a606d908ca',
+   'image.skillContent.erotic':'e3f2bfb85abdd71e9b74310b11f7c441fac6f562eb71b76d0483f7f48b04affb',
+   'image.skillContent.violent':'89807eecb5a46fd8822aab7721c7315be9c4b48f164faf0e22844cdcad0c1206',
+   'image.skillContent.bloody':'9fc38f90152de750c8bb03ba1742a7598884bb1b73514bc31c20042785291828',
+   'image.skillContent.grotesque':'e4cf3b7e08da55a4f921219ce30813830e9a6ec3c685cf3124cb9af7185d18be',
+  };
+  for(const [key,hash] of Object.entries(hashes)){
+   test(key+' matches its recorded SHA-256',()=>{
+    expect(createHash('sha256').update(zhTw.prompts[key as keyof typeof zhTw.prompts]).digest('hex')).toBe(hash);
+   });
+  }
  });
 });

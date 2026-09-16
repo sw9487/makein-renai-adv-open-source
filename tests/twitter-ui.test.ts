@@ -1,6 +1,6 @@
 import {test,expect} from 'bun:test';
 import {createRequire} from 'node:module';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {TwitterAccount} from '../web/components/twitter-account';
 import {TwitterUpload} from '../web/components/twitter-upload';
 import {TwitterTyping} from '../web/components/twitter-typing';
@@ -58,7 +58,7 @@ test('repost menu separates immediate repost from a text quote',()=>{
 
 test('social launchers share one badge design and show branded loading screens',()=>{
  const game=readFileSync(new URL('../web/components/game.tsx',import.meta.url),'utf8'),panel=readFileSync(new URL('../web/components/twitter-panel.tsx',import.meta.url),'utf8'),globalCss=readFileSync(new URL('../web/app/globals.css',import.meta.url),'utf8');
- expect(game.match(/className="social-unread-dot"/g)?.length).toBe(2);expect(globalCss).toContain('.social-icon-wrap{');expect(globalCss).toContain('.social-unread-dot{');
+ expect(game.match(/className="social-unread-dot"/g)?.length).toBe(2);expect(globalCss).toContain('.social-icon-wrap {');expect(globalCss).toContain('.social-unread-dot {');
  expect(panel).toContain('social-launch tw-launch');expect(panel).toMatch(/social-launch tw-launch[\s\S]*tw-app-close/);expect(game).toContain('social-launch line-launch');expect(game).toContain("t('game.openingLine')");
 });
 
@@ -103,10 +103,10 @@ test('only the rendered Twitter image is part of the external image link',()=>{
  expect(css).toContain('.tw-photo-link{display:block;width:fit-content;max-width:100%;line-height:0}');
 });
 
-test('official accounts render a verified badge and initial fallback without bundled artwork',()=>{
- const html=renderToStaticMarkup(createElement(I18nProvider,null,createElement(TwitterAccount,{id:'official',name:'豊橋市役所',handle:'toyohashi_city',color:'#16836b',avatar:'',isPrivate:false,verified:true,onlineLabel:'在線',onVisit:()=>{}})));
- expect(html).toContain('tw-verified');expect(html).toContain('認証済み');expect(html).toContain('豊橋市役所');expect(html).not.toContain('<img');
- for(const account of twitterPublicAccounts){expect(account.avatar).toBe('');expect(account.cover??'').toBe('');}
+test('official accounts render a verified badge and have their own account section',()=>{
+ const html=renderToStaticMarkup(createElement(I18nProvider,null,createElement(TwitterAccount,{id:'official',name:'豊橋市役所',handle:'toyohashi_city',color:'#16836b',avatar:'/assets/twitter-official/toyohashi-city.jpg',isPrivate:false,verified:true,onlineLabel:'在線',onVisit:()=>{}})));
+ expect(html).toContain('tw-verified');expect(html).toContain('認証済み');expect(html).toContain('豊橋市役所');expect(html).toContain('<img src="/assets/twitter-official/toyohashi-city.jpg"');expect(html).not.toContain('>豊</span>');
+ for(const account of twitterPublicAccounts)expect(existsSync(new URL('../web/public'+account.avatar,import.meta.url))).toBe(true);
  const source=readFileSync(new URL('../web/components/twitter-panel.tsx',import.meta.url),'utf8');expect(source).toContain("translate('twitter.officialAccounts')");
 });
 

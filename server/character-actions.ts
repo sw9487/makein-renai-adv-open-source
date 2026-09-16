@@ -2,7 +2,7 @@ import type {Content,GameState} from '../core/types';
 import type {CharacterAction,CharacterReply} from './character-tool';
 import {socialAppEnabled} from '../core/social-apps';
 import {prompt} from './prompt';
-import {appendCharacterLine,applyCharacterTwitterFollow,publishCharacterTwitterPost} from './twitter';
+import {appendCharacterLine,applyCharacterTwitterFollow,applyCharacterTwitterPrivacy,publishCharacterTwitterPost} from './twitter';
 import {requestImage} from './stable-diffusion';
 
 /** Execute the character's independently validated tool intents in declared order.
@@ -23,6 +23,10 @@ export async function executeCharacterActions(s:GameState,c:Content,actor:string
   if(action.kind==='twitter_post'){
    const generated=action.image?await requestImage(s,c,'line',action.text,actor,signal,undefined,{allowCharacterlessLine:true,proactiveLine:true}):{};
    if(!publishCharacterTwitterPost(s,c,actor,action.text,generated))throw Error(prompt('error.characterActions'));
+   continue;
+  }
+  if(action.kind==='twitter_set_private'){
+   applyCharacterTwitterPrivacy(s,c,actor,action.target==='private');
    continue;
   }
   applyCharacterTwitterFollow(s,c,actor,action.target,action.kind==='twitter_unfollow');

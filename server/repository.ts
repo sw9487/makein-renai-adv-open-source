@@ -60,8 +60,8 @@ async function syncMap(executor:DatabaseExecutor,table:string,idColumn:string,ow
 }
 async function syncPostgresSections(executor:DatabaseExecutor,owner:string,runId:string,next:GameState,old:Partial<GameState>){
  await syncMap(executor,'twitter_posts','post_id',owner,runId,next.twitter?.posts??{},old.twitter?.posts??{});
- await syncMap(executor,'line_threads','character',owner,runId,next.messages,old.messages??{});
- await syncMap(executor,'character_memories','character',owner,runId,next.memories,old.memories??{});
+ await syncMap(executor,'line_threads','character',owner,runId,next.messages??{},old.messages??{});
+ await syncMap(executor,'character_memories','character',owner,runId,next.memories??{},old.memories??{});
  if(JSON.stringify(next.log)!==JSON.stringify(old.log))await executor.query('INSERT INTO game_logs(owner,run_id,value,updated) VALUES(?,?,?,?) ON CONFLICT(owner,run_id) DO UPDATE SET value=excluded.value,updated=excluded.updated',[owner,runId,JSON.stringify(next.log),Date.now()]);
 }
 export async function read<T>(key: string, fallback: T): Promise<T> {

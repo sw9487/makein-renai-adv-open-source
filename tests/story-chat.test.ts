@@ -146,17 +146,19 @@ test('private player receives a follow request, and a blocked follow commits no 
  }finally{globalThis.fetch=originalFetch;close();if(resolve(dir).startsWith(resolve(tmpdir())))rmSync(dir,{recursive:true,force:true});}
 });
 
-test('face-to-face chat executes several social actions without replacing its scene dialogue',async()=>{
+test('face-to-face chat executes social actions including account privacy without replacing its scene dialogue',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'makein-talk-actions-test-'));
  const close=initializeRuntime({dataDir:dir,port:19493,env:{AI_API_URL:'https://example.com/v1',AI_API_KEY:'test-only',AI_MODEL:'mock'}});
  const originalFetch=globalThis.fetch;
- globalThis.fetch=(async()=>Response.json(response({speech:'等會兒我也在 LINE 跟你說。',narration:'',thought:null,actions:[{kind:'twitter_follow',target:'kazuhiko',text:''},{kind:'line_message',target:'kazuhiko',text:'這是另外一則私訊。'}]}))) as unknown as typeof fetch;
+  globalThis.fetch=(async()=>Response.json(response({speech:'等會兒我也在 LINE 跟你說。',narration:'',thought:null,actions:[{kind:'twitter_follow',target:'kazuhiko',text:''},{kind:'twitter_set_private',target:'private',text:''},{kind:'line_message',target:'kazuhiko',text:'這是另外一則私訊。'}]}))) as unknown as typeof fetch;
  try{
   const s=createGame(defaultContent);s.date='2027-07-01';s.phase=1;s.character='anna';s.met.push('anna');s.contacts.push('anna');delete s.dialogue.choices;
   const t=twitterState(s,defaultContent);t.playerPrivate=false;(t.following.anna??={}).kazuhiko=false;
   const result=await converse(s,defaultContent,'anna','待會 LINE 聯絡吧。','talk');
   expect(result.state.dialogue.text).toBe('等會兒我也在 LINE 跟你說。');
   expect(result.state.twitter?.following.anna.kazuhiko).toBe(true);
+  expect(result.state.twitter?.accountPrivacy?.anna).toBe(true);
+  expect(twitterState(result.state,defaultContent).accounts.anna.private).toBe(true);
   expect(result.state.messages.anna.at(-1)).toMatchObject({from:'anna',text:'這是另外一則私訊。'});
  }finally{globalThis.fetch=originalFetch;close();if(resolve(dir).startsWith(resolve(tmpdir())))rmSync(dir,{recursive:true,force:true});}
 });

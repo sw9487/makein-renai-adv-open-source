@@ -51,4 +51,4 @@
 
 遊戲地點背景使用 `/assets/places-official/`，公眾帳號橫幅使用 `/assets/twitter-official/covers/`；兩者是不同欄位和用途。舊內容若將封面誤存為地點背景，`twitter-official-places-v3` 升級會把內建七個店家地點及素材紀錄改為獨立生成的 ADV 場景圖；自訂背景不覆蓋。新增圖片時要檢查兩邊引用及檔案存在，不能把窄橫幅當成遊戲場景。
 
-`tests/twitter.test.ts` 覆蓋權限、排程、工具、圖片、新聞、警察及跨平台反應；`tests/twitter-http.test.ts` 覆蓋 HTTP 和公眾帳號追蹤；`tests/twitter-ui.test.ts` 覆蓋介面契約。改動後執行 `bun run check`、`bun test ./tests`、`bun run build`。真實模型診斷 `bun scripts/twitter-live-audit.ts --live` 需明確按需執行，不應把單次模型選擇寫成固定比例。
+`tests/twitter.test.ts` 覆蓋權限、排程、工具、圖片、新聞、警察及跨平台反應；`tests/twitter-http.test.ts` 覆蓋 HTTP 和公眾帳號追蹤；`tests/twitter-ui.test.ts` 覆蓋介面契約。改動後執行 `bun run check`、`bun run test`、`bun run build`（`bun run test` 已內含 `--timeout=40000`，因 postgres.js 較慢）。真實模型診斷 `bun scripts/twitter-live-audit.ts --live` 需明確按需執行，不應把單次模型選擇寫成固定比例。

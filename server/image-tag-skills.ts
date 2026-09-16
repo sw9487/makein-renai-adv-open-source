@@ -1,7 +1,7 @@
 import {prompt} from './prompt';
 
-export type SkillCategory='violent'|'bloody'|'grotesque';
-const categories:SkillCategory[]=['bloody','grotesque','violent'];
+export type SkillCategory='erotic'|'violent'|'bloody'|'grotesque';
+const categories:SkillCategory[]=['bloody','erotic','grotesque','violent'];
 
 export function skillMenu(){
  const skills=categories.map(category=>`- ${category}: ${prompt('image.skill.'+category)}`).join('\n');

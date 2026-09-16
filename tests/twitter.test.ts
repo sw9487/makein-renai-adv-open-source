@@ -1,5 +1,5 @@
 import {test,expect,afterEach} from 'bun:test';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {existsSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {defaultContent} from '../core/content';
@@ -12,7 +12,7 @@ import type {GameState} from '../core/types';
 import {mergeConcurrentState} from '../server/concurrent-state';
 import {validateContent} from '../server/validation';
 import {characterAvailable} from '../core/timeline';
-import {twitterPublicAccounts} from '../core/twitter-public';
+import {twitterPublicAccounts,twitterPublicCover} from '../core/twitter-public';
 import {saveKnowledgeFiles} from '../server/knowledge';
 import {saveSearchSettings} from '../server/web-search';
 import {conversationMemoryMessages,socialMemoryContext} from '../server/memory-context';
@@ -107,6 +107,14 @@ test('Twitter block removes both follows and requests; unblock never restores th
  expect(()=>applyTwitterDecision(s,defaultContent,'kazuhiko',decision('follow','anna'))).toThrow('封鎖');
  applyTwitterDecision(s,defaultContent,'anna',decision('unblock','kazuhiko'));
  expect(t.blocks?.anna.kazuhiko).toBe(false);expect(t.following.anna.kazuhiko).toBe(false);expect(t.following.kazuhiko.anna).toBe(false);
+});
+test('characters can persistently switch only their own Twitter privacy',()=>{
+ const s=createGame(defaultContent),t=twitterState(s,defaultContent);expect(t.accounts.anna.private).toBe(false);
+ applyTwitterDecision(s,defaultContent,'anna',decision('set_private','private'));expect(t.accountPrivacy?.anna).toBe(true);expect(twitterState(s,defaultContent).accounts.anna.private).toBe(true);
+ applyTwitterDecision(s,defaultContent,'mitsuki',decision('follow','anna'));expect(t.requests.anna.mitsuki).toBe(true);expect(t.following.mitsuki?.anna).not.toBe(true);
+ applyTwitterDecision(s,defaultContent,'anna',decision('set_private','public'));expect(t.accountPrivacy?.anna).toBe(false);expect(twitterState(s,defaultContent).accounts.anna.private).toBe(false);
+ expect(()=>applyTwitterDecision(s,defaultContent,'kazuhiko',decision('set_private','private'))).toThrow();
+ const official=twitterPublicAccounts[0];expect(()=>applyTwitterDecision(s,defaultContent,official.id,decision('set_private','private'))).toThrow();
 });
 test('a character Twitter reaction can change player affection without another LLM call',async()=>{
  setup();await write('content',defaultContent);await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'mock'});
@@ -245,9 +253,9 @@ test('a player reply schedules the directly addressed author without making ever
  const postPlayer=async(text:string)=>{const r=await twitterApi(request({...decision('reply',root.id,text),runId:s.runId,requestId:crypto.randomUUID()}));expect(r.status).toBe(200);const latest=await read<GameState>('game:'+owner,s);return Object.values(latest.twitter!.posts).find(p=>p.author==='kazuhiko'&&p.text===text)!;};
  const drain=async()=>{for(let i=0;i<45;i++){const latest=await read<GameState>('game:'+owner,s),job=Object.entries(latest.twitter!.jobs!).find(([,job])=>job.status==='scheduled');if(!job)return;await runTwitterJob(owner,s.runId,defaultContent,job[0]);}throw Error('Reaction chain failed to settle');};
  const first=await postPlayer('我想聽大家的推薦');await drain();let saved=await read<GameState>('game:'+owner,s);
- expect(Object.values(saved.twitter!.posts).filter(p=>p.replyTo===first.id&&p.author!=='official-toyohashi-police').map(p=>p.author)).toEqual(['anna']);expect(saved.twitter!.npcInteractions?.[budgetKey]??0).toBe(0);
+ expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='anna'&&p.replyTo===first.id)).toHaveLength(1);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='lemon'&&p.replyTo===root.id)).toHaveLength(1);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===root.id)).toHaveLength(1);expect(saved.twitter!.npcInteractions?.[budgetKey]??0).toBe(0);
  const second=await postPlayer('那巧克力口味呢？');await drain();saved=await read<GameState>('game:'+owner,s);
- expect(Object.values(saved.twitter!.posts).filter(p=>p.replyTo===second.id&&p.author!=='official-toyohashi-police').map(p=>p.author)).toEqual(['anna']);expect(saved.twitter!.npcInteractions?.[budgetKey]??0).toBe(0);
+ expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='anna'&&p.replyTo===second.id)).toHaveLength(1);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='lemon'&&p.replyTo===root.id)).toHaveLength(1);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===root.id)).toHaveLength(1);expect(saved.twitter!.npcInteractions?.[budgetKey]??0).toBe(0);
 });
 
 test('private-account replies under a public root reach the root author',()=>{
@@ -407,7 +415,7 @@ test('NPC jobs suppress repeated replies across slots but can answer a new comme
  expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===root.id)).toHaveLength(1);
  const fresh=applyTwitterDecision(saved,defaultContent,'kazuhiko',decision('reply',first.id,'你平常跑多少？'))!;target=fresh.id;
  saved.twitter!.jobs!.fresh={actor:'mitsuki',date:s.date,phase:s.phase,due:0,posts:Object.keys(saved.twitter!.posts),status:'scheduled',trigger:{kind:'reply',source:'kazuhiko',postId:fresh.id}};await write('game:'+owner,saved);
- await runTwitterJob(owner,s.runId,defaultContent,'fresh');saved=await read<GameState>('game:'+owner,s);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===fresh.id)).toHaveLength(1);
+ await runTwitterJob(owner,s.runId,defaultContent,'fresh');saved=await read<GameState>('game:'+owner,s);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===root.id)).toHaveLength(1);expect(Object.values(saved.twitter!.posts).filter(p=>p.author==='mitsuki'&&p.replyTo===first.id)).toHaveLength(1);
 });
 test('overlapping jobs for one NPC wait and read the committed reply before continuing',async()=>{
  setup();const s=createGame(defaultContent);s.runId='serial-npc';const root=applyTwitterDecision(s,defaultContent,'lemon',decision('post','','今天練跑'))!;
@@ -636,6 +644,18 @@ test('an online valued LINE contact can ask why the player unfollowed',async()=>
  const response=await twitterApi(request({...decision('unfollow','anna'),runId:s.runId,requestId:crypto.randomUUID()}));expect(response.status).toBe(200);
  let saved=s;for(let i=0;i<100;i++){saved=await read<GameState>('game:'+owner,s);if(saved.messages.anna?.length)break;await Bun.sleep(2);}expect(saved.messages.anna.at(-1)?.text).toContain('取消追蹤');expect(Object.values(saved.twitter!.unfollows??{}).every(event=>event.handled)).toBe(true);
 });
+test('an online LINE contact can ask why the player blocked them',async()=>{
+ setup();const s=createGame(defaultContent);s.runId='block-line';s.met.push('anna');s.contacts.push('anna');s.affection.anna=40;s.twitter!.following.kazuhiko.anna=true;s.twitter!.jobs={[`${s.date}:${s.phase}:anna`]:{actor:'anna',date:s.date,phase:s.phase,due:0,posts:[],status:'done'}};s.memories.anna={summary:'把和彥當成重要朋友。',facts:['彼此信任'],recent:[],turns:4};await write('game:'+owner,s);await write('api-settings',{url:'https://model.example/v1',model:'test',key:'test'});
+ globalThis.fetch=(async(_url:any,init:any)=>{const body=JSON.parse(init.body),tool=body.tools?.[0]?.function?.name;if(!tool)return Response.json({choices:[{message:{content:''}}]});if(tool==='read_knowledge')return Response.json({choices:[{message:{content:''}}]});if(tool==='twitter_action'){const context=JSON.parse(body.messages.at(-1).content);return Response.json({choices:[{message:{tool_calls:[{function:{name:'twitter_action',arguments:JSON.stringify(context.request)}}]}}]});}expect(tool).toBe('send_unfollow_line');return Response.json({choices:[{message:{tool_calls:[{function:{name:'send_unfollow_line',arguments:JSON.stringify({send:true,text:'為什麼突然封鎖我？',image:false})}}]}}]});}) as typeof fetch;
+ const response=await twitterApi(request({...decision('block','anna'),runId:s.runId,requestId:crypto.randomUUID()}));expect(response.status).toBe(200);
+ let saved=s;for(let i=0;i<100;i++){saved=await read<GameState>('game:'+owner,s);if(saved.messages.anna?.length)break;await Bun.sleep(2);}expect(saved.messages.anna.at(-1)?.text).toContain('封鎖');expect(saved.twitter!.blocks?.kazuhiko.anna).toBe(true);expect(Object.values(saved.twitter!.unfollows??{}).every(event=>event.handled)).toBe(true);
+});
+test('an autonomous Twitter turn can switch the character account privacy',async()=>{
+ setup();await write('content',defaultContent);await write('api-settings',{url:'https://llm.example/v1',key:'test',model:'mock'});
+ const s=createGame(defaultContent);s.twitter!.jobs={privacy:{actor:'anna',date:s.date,phase:s.phase,due:0,posts:[],status:'scheduled'}};await write('game:'+owner,s);
+ globalThis.fetch=(async(_url:any,init:any)=>{const body=JSON.parse(init.body),context=JSON.parse(body.messages.at(-1).content);expect(body.tools[0].function.parameters.properties.action.enum).toContain('set_private');expect(context.accounts.find((account:any)=>account.id==='anna').private).toBe(false);return Response.json({choices:[{message:{tool_calls:[{function:{name:'twitter_action',arguments:JSON.stringify(decision('set_private','private'))}}]}}]});}) as typeof fetch;
+ await runTwitterJob(owner,s.runId,defaultContent,'privacy');const saved=await read<GameState>('game:'+owner,s);expect(saved.twitter!.accountPrivacy?.anna).toBe(true);expect(twitterState(saved,defaultContent).accounts.anna.private).toBe(true);
+});
 test('a wrong LLM action or stale run cannot change Twitter state',async()=>{
  setup();const s=createGame(defaultContent);s.runId='new';await write('game:'+owner,s);await write('api-settings',{url:'https://model.example/v1',model:'test',key:'test'});
  globalThis.fetch=(async()=>Response.json({choices:[{message:{tool_calls:[{function:{name:'twitter_action',arguments:JSON.stringify(decision('idle'))}}]}}]})) as unknown as typeof fetch;
@@ -729,9 +749,9 @@ test('verified public accounts are always public, followable, and never follow b
  expect(twitterState(s,defaultContent).accounts[official.id].private).toBe(false);
 });
 
-test('pilgrimage shops use distinct verified accounts without bundled profile artwork',()=>{
+test('pilgrimage shops use distinct verified accounts with complete local artwork',()=>{
  const expected=['official-seibunkan','official-uno-uno','official-bon-senga','official-murata-takoyaki','official-housendo-kalmia','official-yamasa-west','official-coffee-canele','official-gusto-hashira','official-miyako-udon'];
- for(const id of expected){const account=twitterPublicAccounts.find(item=>item.id===id);expect(account).toBeDefined();expect(account!.avatar).toBe('');expect(account!.cover??'').toBe('');}
+ for(const id of expected){const account=twitterPublicAccounts.find(item=>item.id===id);expect(account).toBeDefined();expect(existsSync(join(import.meta.dir,'../web/public',account!.avatar))).toBe(true);expect(existsSync(join(import.meta.dir,'../web/public',twitterPublicCover(id)))).toBe(true);}
  const gusto=twitterPublicAccounts.find(item=>item.id==='official-gusto-hashira');expect(gusto).toMatchObject({name:'ガスト 豊橋橋良店',handle:'gusto_hashira',sourceUrl:'https://store-info.skylark.co.jp/gusto/map/011654/'});
  expect(new Set(twitterPublicAccounts.map(item=>item.id)).size).toBe(twitterPublicAccounts.length);expect(new Set(twitterPublicAccounts.map(item=>item.handle)).size).toBe(twitterPublicAccounts.length);
 });

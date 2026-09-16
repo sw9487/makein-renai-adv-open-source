@@ -77,6 +77,13 @@ function gameRequestError(data:{error?:string;code?:string}|undefined,fallback:s
   if(data?.code==='PROGRESS_CONFLICT')error.name='ProgressConflictError';
   return error;
 }
+/** Key of the first unread incoming message for a contact, or '' when all read.
+ *  Mirrors @core/line-inbox read-position logic so it matches the unread badge. */
+function firstUnreadAnchor(messages:GameState['messages'][string],id:string,baseline?:string){
+  const incoming=messages.map((m,i)=>({key:messageKey(m,i),message:m})).filter(item=>item.message.from===id);
+  const readIndex=incoming.findIndex(item=>item.key===baseline);
+  return incoming.find((item,index)=>index>readIndex&&!item.message.readByPlayerAt)?.key??'';
+}
 export default function Game() {
   const {t,language}=useI18n();
   const {preference:themePreference,dark,setPreference:setTheme,cycle:cycleTheme}=useTheme();
@@ -161,7 +168,15 @@ export default function Game() {
     const key=`${state?.runId}:${phone}:${lineLatest[phone]}`;if(lineReadAck.current.has(key))return;lineReadAck.current.add(key);
     void fetch('/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'line-read',character:phone,runId:state?.runId,requestId:crypto.randomUUID()})}).then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.error);if(data.state)setState(previous=>previous&&previous.revision>data.state.revision?previous:preserveReadingDialogue(previous,data.state));}).catch(()=>lineReadAck.current.delete(key));
   },[panel,phone,state?.messages,tabVisible]);
-  function openLine(){if(state&&socialAppEnabled(state,'line')){setLineLaunching(true);setPanel('phone');}}
+  function openLine(targetPhone?:string){
+    if(!state||!socialAppEnabled(state,'line'))return;
+    // Capture the first-unread key at the OPEN moment. The mark-as-read effect
+    // (below) resets the baseline during the launch splash, so it must not be
+    // read reactively after the conversation has mounted.
+    const id=targetPhone??phone;
+    setLineUnreadAnchor(firstUnreadAnchor(state.messages[id]??[],id,lineRead[id]));
+    setLineLaunching(true);setPanel('phone');
+  }
   useEffect(()=>{if(!lineLaunching)return;const timer=setTimeout(()=>setLineLaunching(false),700);return()=>clearTimeout(timer);},[lineLaunching]);
   useEffect(()=>{
     const pending=state?.pendingDate??state?.pendingDateInvitation;
@@ -180,7 +195,11 @@ export default function Game() {
   },[state?.runId,state?.messages,state?.socialApps?.line]);
 
   const dialogueScroll=useRef<HTMLDivElement>(null);
-  const messageScroll=useLineScroll(phone);
+  // First-unread key captured when the LINE window is opened, so it opens
+  // scrolled to that message instead of the very bottom when there are new
+  // messages. (Stored as state so the scroll hook sees a fresh value on open.)
+  const [lineUnreadAnchor,setLineUnreadAnchor]=useState('');
+  const messageScroll=useLineScroll(phone,lineUnreadAnchor);
   const talkInput=useRef<HTMLTextAreaElement>(null);
   const actionInput=useRef<HTMLTextAreaElement>(null);
   const lineInput=useRef<HTMLTextAreaElement>(null);
@@ -545,7 +564,7 @@ export default function Game() {
   async function inviteDate(){
     if(!dateCharacter||!datePlace)return;
     dateLineLaunch.current=dateCharacter+':'+datePlace;
-    setPhone(dateCharacter);setDateBusy(true);setDateStage('creating');openLine();
+    setPhone(dateCharacter);setDateBusy(true);setDateStage('creating');openLine(dateCharacter);
     try{
       const created=await action({type:'date-invite-create',character:dateCharacter,place:datePlace});
       if(!created?.state?.pendingDateInvitation)return;
@@ -888,7 +907,7 @@ export default function Game() {
               </div>
             )}
               {socialAppEnabled(state,'twitter')&&<button className="scene-twitter-button" onClick={()=>setPanel('twitter')} aria-label={uiText("open_twitter")}><span className="social-icon-wrap"><TwitterBird size={40}/>{twitterUnread&&<span className="social-unread-dot" role="status" aria-label={t('game.twitterUnread')}/>}</span><span>{uiText("technical.twitter")}</span></button>}
-              {socialAppEnabled(state,'line')&&<button className="scene-line-button" onClick={()=>{if(character&&state.contacts.includes(character.id))setPhone(character.id);openLine();}} aria-label={uiText("open_line")}>
+              {socialAppEnabled(state,'line')&&<button className="scene-line-button" onClick={()=>{if(character&&state.contacts.includes(character.id)){setPhone(character.id);openLine(character.id);}else openLine();}} aria-label={uiText("open_line")}>
                 <span className="social-icon-wrap"><img src="/assets/line-brand.png" alt="" width={40} height={40}/>{hasUnreadLine&&<span className="social-unread-dot" role="status" aria-label={uiText("there_are_unread_line_messages")}/>}</span><span>{uiText("technical.line")}</span>
               </button>}
               <nav className="scene-side-actions" aria-label={uiText("game_menu_on_the_left")}><button onClick={()=>setDrawer(drawer==='map'?'':'map')} aria-expanded={drawer==='map'}><MapPin size={18}/> {uiText("map")}</button><button onClick={()=>setPanel('gallery')}><ImageIcon size={18}/> {uiText("memory_album")}</button></nav>
@@ -1220,6 +1239,7 @@ export default function Game() {
                           'message ' +
                           (m.from === 'system' ? 'system' : m.from === 'player' ? 'sent' : 'received')
                         }
+                        data-message-key={messageKey(m,i)}
                         key={i}
                       >
                         <p data-i18n-skip={m.from!=='system'||undefined}>{m.text}</p>

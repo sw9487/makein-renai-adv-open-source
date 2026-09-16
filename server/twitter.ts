@@ -1,5 +1,5 @@
 import type {Content,GameState,SocialMemoryEvent} from '../core/types';
-import {canReadPost,canReadTwitter,socialSettings,twitterBlocked,twitterMentions,twitterState,twitterView,twitterPosts,twitterTrends,twitterOnlineProbability,twitterNpcInteractionLimit,twitterPostPending,type TwitterJob,type TwitterPost} from '../core/twitter';
+import {canReadPost,canReadTwitter,socialSettings,twitterBlocked,twitterMentions,twitterState,twitterView,twitterPosts,twitterTrends,twitterOnlineProbability,twitterNpcInteractionLimit,twitterPostPending,type TwitterJob,type TwitterPost,type TwitterUnfollowEvent} from '../core/twitter';
 import {characterAvailable,currentProfile} from '../core/timeline';
 import {apiSettings,read,commit,json,owner,sameOrigin,content} from './repository';
 import {modelFetch} from './model-runtime';
@@ -21,10 +21,10 @@ import {searchContext} from './web-search';
 import {conversationMemoryMessages,reliableMemorySummary,socialMemoryContext} from './memory-context';
 import {requestLanguage} from './request-locale';
 
-type Decision={action:'idle'|'post'|'reply'|'like'|'repost'|'quote'|'follow'|'accept'|'decline'|'unfollow'|'block'|'unblock'|'delete';target:string;text:string;image:boolean;affectionDelta?:number};
+type Decision={action:'idle'|'post'|'reply'|'like'|'repost'|'quote'|'follow'|'accept'|'decline'|'unfollow'|'block'|'unblock'|'set_private'|'delete';target:string;text:string;image:boolean;affectionDelta?:number};
 type PrivateLineDecision={action:'private_line';target:'kazuhiko';text:string;image:boolean;affectionDelta?:number};
 type SocialDecision=Decision|PrivateLineDecision;
-const kinds=['idle','post','reply','like','repost','quote','follow','accept','decline','unfollow','block','unblock','delete'];
+const kinds=['idle','post','reply','like','repost','quote','follow','accept','decline','unfollow','block','unblock','set_private','delete'];
 const imageSession=crypto.randomUUID();
 const twitterActionProperties={action:{type:'string',enum:kinds},target:{type:'string',get description(){return prompt('twitter.target');}},text:{type:'string',get description(){return prompt('twitter.text');}},affectionDelta:{type:'integer',minimum:-3,maximum:3,get description(){return prompt('twitter.affectionTool');}}};
 const twitterThenItem={type:'object',properties:twitterActionProperties,required:['action','target','text'],additionalProperties:false};
@@ -33,7 +33,7 @@ export const twitterImagePostTool={type:'function',function:{name:'twitter_image
 export const twitterPrivateLineTool={type:'function',function:{name:'send_twitter_private_line',get description(){return prompt('twitter.privateLineTool');},parameters:{type:'object',properties:{text:{type:'string',get description(){return prompt('proactive.text');}},image:{type:'boolean',get description(){return prompt('proactive.image');}},affectionDelta:{type:'integer',minimum:-3,maximum:3,get description(){return prompt('twitter.privateLineAffectionTool');}}},required:['text','image'],additionalProperties:false}}};
 export const twitterNewsBatchTool={type:'function',function:{name:'twitter_news_batch',get description(){return prompt('twitter.newsBatchTool');},parameters:{type:'object',properties:{articles:{type:'array',minItems:0,maxItems:3,items:{type:'object',properties:{headline:{type:'string',maxLength:72,get description(){return prompt('twitter.newsHeadline');}},body:{type:'string',maxLength:180,get description(){return prompt('twitter.newsBody');}},sourcePostIds:{type:'array',minItems:1,items:{type:'string'},get description(){return prompt('twitter.newsSources');}}},required:['headline','body','sourcePostIds'],additionalProperties:false}}},required:['articles'],additionalProperties:false}}};
 export function parseTwitterDecision(raw:string):Decision{
- const x=JSON.parse(raw),affectionDelta=x?.affectionDelta??0;if(!x||!kinds.includes(x.action)||typeof x.target!=='string'||x.target.length>100||typeof x.text!=='string'||x.text.length>280||typeof x.image!=='boolean'||!Number.isInteger(affectionDelta)||affectionDelta < -3||affectionDelta > 3||(['post','reply','quote'].includes(x.action)&&!x.text.trim())||(x.image&&x.action!=='post'))throw Error('Twitter 工具參數不正確。回覆不能附圖或生圖。');return {action:x.action,target:x.target,text:x.text,image:x.image,...(Object.hasOwn(x,'affectionDelta')?{affectionDelta}: {})};
+ const x=JSON.parse(raw),affectionDelta=x?.affectionDelta??0;if(!x||!kinds.includes(x.action)||typeof x.target!=='string'||x.target.length>100||typeof x.text!=='string'||x.text.length>280||typeof x.image!=='boolean'||!Number.isInteger(affectionDelta)||affectionDelta < -3||affectionDelta > 3||(['post','reply','quote'].includes(x.action)&&!x.text.trim())||(x.action==='set_private'&&(!['private','public'].includes(x.target)||!!x.text||x.image))||(x.image&&x.action!=='post'))throw Error('Twitter 工具參數不正確。回覆不能附圖或生圖。');return {action:x.action,target:x.target,text:x.text,image:x.image,...(Object.hasOwn(x,'affectionDelta')?{affectionDelta}: {})};
 }
 function parseTwitterToolCall(name:string,raw:string):SocialDecision[]{
  const x=JSON.parse(raw);
@@ -53,6 +53,7 @@ function parseTwitterToolCall(name:string,raw:string):SocialDecision[]{
  const actions=[first,...(then??[])].map(item=>parseTwitterDecision(JSON.stringify({...item,image:false})));
  if(actions.length>1&&actions.some(action=>action.action==='idle'))throw Error(prompt('twitter.sequenceIdle'));
  if(actions.filter(action=>['post','reply','quote'].includes(action.action)).length>1)throw Error(prompt('twitter.sequenceContentLimit'));
+ if(actions.filter(action=>action.action==='set_private').length>1)throw Error(prompt('twitter.sequenceDuplicate'));
  if(new Set(actions.map(action=>`${action.action}:${action.target}`)).size!==actions.length)throw Error(prompt('twitter.sequenceDuplicate'));
  return actions;
 }
@@ -74,6 +75,7 @@ function rememberTwitter(s:GameState,c:Content,owner:string,eventType:SocialMemo
  const memory=s.memories[owner]??=emptyMemory();memory.recent.push({role:actorId===owner?'assistant':'user',content,date:s.date,phase:s.phase,channel:'twitter',social});compactMemory(memory,c.settings.memoryChars,c.settings.recentTurns*2);
 }
 function twitterRoot(t:ReturnType<typeof twitterState>,post:TwitterPost){let root=post,guard=0;while(root.replyTo&&t.posts[root.replyTo]&&guard++<200)root=t.posts[root.replyTo];return root;}
+function replyThreadParent(t:ReturnType<typeof twitterState>,target:TwitterPost){const root=twitterRoot(t,target);let node:TwitterPost|undefined=target,guard=0;while(node&&node.id!==root.id&&guard++<200){if(node.replyTo===root.id)return node.id;node=node.replyTo?t.posts[node.replyTo]:undefined;}return root.id;}
 function rememberPublishedPost(s:GameState,c:Content,post:TwitterPost){
  const t=twitterState(s,c),actor=post.author,parent=post.replyTo?t.posts[post.replyTo]:undefined,quoted=post.quoteTo?t.posts[post.quoteTo]:undefined;
  const actorName=c.characters.find(ch=>ch.id===actor)?.name??actor;
@@ -90,14 +92,20 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
  const target=t.accounts[d.target];const p=t.posts[d.target];
  const following=t.following[actor]??={};
  if(d.action==='idle')return;
+ if(d.action==='set_private'){
+  if(actor==='kazuhiko'||t.accounts[actor].publicAccount||!c.characters.some(character=>character.id===actor))throw Error(prompt('error.characterPrivacy'));
+  (t.accountPrivacy??={})[actor]=d.target==='private';t.accounts[actor].private=d.target==='private';return;
+ }
  if(d.action==='delete'){if(!p||p.author!==actor)throw Error('只能刪除自己發布的 Twitter 貼文。');if(twitterPostPending(p))throw Error('圖片處理完成前不能刪除這則貼文。');delete t.posts[d.target];return;}
  if(['block','unblock'].includes(d.action)&&(!target||actor===d.target))throw Error('無效的封鎖對象。');
  if(d.action==='block'){
+  const wasBlocked=!!t.blocks?.[actor]?.[d.target];
   ((t.blocks??={})[actor]??={})[d.target]=true;
   (t.following[actor]??={})[d.target]=false;(t.following[d.target]??={})[actor]=false;
   (t.requests[actor]??={})[d.target]=false;(t.requests[d.target]??={})[actor]=false;
   rememberTwitter(s,c,actor,'block',actor,prompt('twitter.memory.blockedByYou',{target:twitterAccountName(c,d.target)}),{targetId:d.target,targetName:twitterAccountName(c,d.target)});
-  rememberTwitter(s,c,d.target,'block',actor,prompt('twitter.memory.blockedYou',{actor:twitterAccountName(c,actor)}),{targetId:d.target,targetName:twitterAccountName(c,d.target)});return;
+  rememberTwitter(s,c,d.target,'block',actor,prompt('twitter.memory.blockedYou',{actor:twitterAccountName(c,actor)}),{targetId:d.target,targetName:twitterAccountName(c,d.target)});
+  if(actor==='kazuhiko'&&!wasBlocked&&c.characters.some(character=>character.id===d.target))(t.unfollows??={})[crypto.randomUUID()]={actor,target:d.target,date:s.date,phase:s.phase,created:now,kind:'block'};return;
  }
  if(d.action==='unblock'){if(!t.blocks?.[actor]?.[d.target])return;t.blocks[actor][d.target]=false;rememberTwitter(s,c,actor,'unblock',actor,prompt('twitter.memory.unblockedByYou',{target:twitterAccountName(c,d.target)}),{targetId:d.target,targetName:twitterAccountName(c,d.target)});return;}
  // Removing your own repost must remain possible after its author goes private.
@@ -112,7 +120,7 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
   const root=d.action==='reply'?twitterRoot(t,p!):undefined;
   const forbiddenMention=Object.keys(t.accounts).find(id=>twitterMentions(t,d.text,id)&&!(root?canReadPost(t,id,root.id):canReadTwitter(t,id,actor)));
   if(forbiddenMention)throw Error(prompt('error.twitterPrivateMention'));
-  const post:TwitterPost={id:crypto.randomUUID(),author:actor,text:d.text.trim(),date:s.date,phase:s.phase,created:now,likes:{},reposts:{},...(d.image?{imagePending:true,imageStatus:'準備配圖',imageSession:imageSession+':'+s.runId}:{}),...(d.action==='reply'?{replyTo:d.target}:d.action==='quote'?{quoteTo:d.target}:{})};t.posts[post.id]=post;
+  const post:TwitterPost={id:crypto.randomUUID(),author:actor,text:d.text.trim(),date:s.date,phase:s.phase,created:now,likes:{},reposts:{},...(d.image?{imagePending:true,imageStatus:'準備配圖',imageSession:imageSession+':'+s.runId}:{}),...(d.action==='reply'?{replyTo:replyThreadParent(t,p!)}:d.action==='quote'?{quoteTo:d.target}:{})};t.posts[post.id]=post;
   if(!d.image)rememberPublishedPost(s,c,post);
   return post;
  }
@@ -132,7 +140,7 @@ export function applyTwitterDecision(s:GameState,c:Content,actor:string,d:Decisi
  if(d.action==='unfollow'){
   const wasFollowing=!!following[d.target];following[d.target]=false;(t.requests[d.target]??={})[actor]=false;
   if(wasFollowing)rememberTwitter(s,c,d.target,'unfollow',actor,prompt('twitter.memory.unfollowedYou',{actor:twitterAccountName(c,actor)}),{targetId:d.target,targetName:twitterAccountName(c,d.target)});
-  if(actor==='kazuhiko'&&wasFollowing)(t.unfollows??={})[crypto.randomUUID()]={actor,target:d.target,date:s.date,phase:s.phase,created:now};
+  if(actor==='kazuhiko'&&wasFollowing)(t.unfollows??={})[crypto.randomUUID()]={actor,target:d.target,date:s.date,phase:s.phase,created:now,kind:'unfollow'};
  }
  if(d.action==='accept'||d.action==='decline'){
   if(!t.requests[actor]?.[d.target])throw Error('追蹤請求已處理。');
@@ -163,6 +171,11 @@ export function applyCharacterTwitterFollow(s:GameState,c:Content,actor:string,t
  applyTwitterDecision(s,c,actor,decision);
  const after=twitterState(s,c);
  if(wasFollowing!==!!after.following[actor]?.[target]||wasPending!==!!after.requests[target]?.[actor])queueOnlineReactions(s,c,decision,undefined,actor);
+}
+
+export function applyCharacterTwitterPrivacy(s:GameState,c:Content,actor:string,privateAccount:boolean){
+ if(!socialAppEnabled(s,'twitter')||actor==='kazuhiko'||!c.characters.some(character=>character.id===actor))throw Error(prompt('error.characterActions'));
+ applyTwitterDecision(s,c,actor,{action:'set_private',target:privateAccount?'private':'public',text:'',image:false});
 }
 
 // Every update reads fresh state and uses compare-and-swap, including after LLM/image work.
@@ -363,21 +376,22 @@ function applyTwitterAffection(s:GameState,c:Content,actor:string,trigger:Twitte
 }
 async function handleUnfollowLine(ownerId:string,runId:string|undefined,c:Content,actor:string){
  try{
-  let event:{actor:string;target:string;date:string;phase:number;created:number}|undefined;
+   let event:TwitterUnfollowEvent|undefined;
   const claimed=await update(ownerId,runId,s=>{event=undefined;const found=Object.values(s.twitter?.unfollows??{}).filter(x=>x.target===actor&&!x.handled).sort((a,b)=>a.created-b.created)[0];if(found){found.handled=true;event={...found};}});
-  if(!claimed||claimed.ended||!socialAppEnabled(claimed,'line')||!event||!claimed.contacts.includes(actor)||claimed.twitter?.following.kazuhiko?.[actor])return;
+   const restored=event?.kind==='block'?!claimed?.twitter?.blocks?.kazuhiko?.[actor]:!!claimed?.twitter?.following.kazuhiko?.[actor];
+   if(!claimed||claimed.ended||!socialAppEnabled(claimed,'line')||!event||!claimed.contacts.includes(actor)||restored)return;
   const ch=c.characters.find(x=>x.id===actor);if(!ch)return;
   const memory=claimed.memories[actor]??emptyMemory(),ai=await apiSettings();if(!ai.url||!ai.key||!ai.model)return;
   const base=ai.url.replace(/\/+$/,''),endpoint=base.endsWith('/chat/completions')?base:base+(new URL(base).pathname==='/'?'/v1':'')+'/chat/completions';
   const schema={type:'function',function:{name:'send_unfollow_line',description:prompt('proactive.tool'),parameters:{type:'object',properties:{send:{type:'boolean'},text:{type:'string',description:prompt('proactive.text')},image:{type:'boolean',description:prompt('proactive.image')}},required:['send','text','image'],additionalProperties:false}}};
-  const context={event,calendar:calendarPromptContext(claimed.date),profile:currentProfile(ch,claimed,c),affection:claimed.affection[actor]??0,memory:{summary:memory.summary,facts:memory.facts,important:importantMemoryView(memory,'解除追蹤 朋友 關係')}};
+   const context={event,calendar:calendarPromptContext(claimed.date),profile:currentProfile(ch,claimed,c),affection:claimed.affection[actor]??0,memory:{summary:memory.summary,facts:memory.facts,important:importantMemoryView(memory,event.kind==='block'?'封鎖 朋友 關係':'解除追蹤 朋友 關係')}};
   const referenceQuery=JSON.stringify({channel:'line',mode:'twitter-unfollow',...context});
   const [knowledge,webKnowledge]=await Promise.all([knowledgeContext(endpoint,ai,referenceQuery),searchContext(referenceQuery)]);
-  const response=await modelFetch(endpoint,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ai.key},body:JSON.stringify({model:ai.model,max_tokens:900,temperature:.7,tools:[schema],tool_choice:{type:'function',function:{name:'send_unfollow_line'}},parallel_tool_calls:false,messages:[{role:'system',content:[configuredPrompt(c.settings.systemPrompt),configuredPrompt(ch.prompt,{name:ch.name,bio:ch.bio}),knowledge,webKnowledge,prompt('twitter.unfollowTrigger')].filter(Boolean).join('\n\n')},{role:'user',content:JSON.stringify(context)}]})});
+   const response=await modelFetch(endpoint,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ai.key},body:JSON.stringify({model:ai.model,max_tokens:900,temperature:.7,tools:[schema],tool_choice:{type:'function',function:{name:'send_unfollow_line'}},parallel_tool_calls:false,messages:[{role:'system',content:[configuredPrompt(c.settings.systemPrompt),configuredPrompt(ch.prompt,{name:ch.name,bio:ch.bio}),knowledge,webKnowledge,prompt(event.kind==='block'?'twitter.blockTrigger':'twitter.unfollowTrigger')].filter(Boolean).join('\n\n')},{role:'user',content:JSON.stringify(context)}]})});
   const call=(await response.json()).choices?.[0]?.message?.tool_calls?.[0];if(call?.function?.name!=='send_unfollow_line')return;
   const decision=JSON.parse(call.function.arguments);if(decision.send!==true||typeof decision.text!=='string'||!decision.text.trim()||decision.text.length>1500||typeof decision.image!=='boolean')return;
   const text=decision.text.trim(),generated=decision.image?await requestImage(claimed,c,'line',text,actor,undefined,undefined,{allowCharacterlessLine:true,proactiveLine:true}):{};
-  await update(ownerId,runId,s=>{if(s.ended||!socialAppEnabled(s,'line')||!s.contacts.includes(actor)||s.twitter?.following.kazuhiko?.[actor])return;appendCharacterLine(s,c,actor,text,generated);});
+   await update(ownerId,runId,s=>{const restored=event?.kind==='block'?!s.twitter?.blocks?.kazuhiko?.[actor]:!!s.twitter?.following.kazuhiko?.[actor];if(s.ended||!socialAppEnabled(s,'line')||!s.contacts.includes(actor)||restored)return;appendCharacterLine(s,c,actor,text,generated);});
  }catch{/* Optional reaction must not break the Twitter job. */}
 }
 async function handleFollowBack(ownerId:string,runId:string|undefined,c:Content,actor:string){
@@ -688,7 +702,7 @@ export async function twitterApi(req:Request){
    if(!next)throw Error('存檔已切換。');
    if(post&&d.image&&['post','reply'].includes(d.action))void attachImage(id,s.runId,c,post);
    resumeTwitter(id,next,latestContent);
-   if(d.action==='unfollow'&&next.twitter?.jobs?.[`${next.date}:${next.phase}:${d.target}`])void handleUnfollowLine(id,s.runId,latestContent,d.target);
+    if(['unfollow','block'].includes(d.action)&&next.twitter?.jobs?.[`${next.date}:${next.phase}:${d.target}`])void handleUnfollowLine(id,s.runId,latestContent,d.target);
    const notice=d.action==='follow'&&s.twitter!.accounts[d.target].private?'追蹤請求已送出，等待對方上線決定。':undefined;
    return json({twitter:playerView(next),revision:next.revision,runId:next.runId,...(notice?{notice}:{})});
   }finally{pending.delete(id);}

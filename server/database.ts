@@ -1,101 +1,37 @@
-import { Database, type SQLQueryBindings } from "bun:sqlite";
-import { mkdirSync, chmodSync } from "node:fs";
-import { dirname } from "node:path";
-import { SQL } from "bun";
+import postgres from "postgres";
+const QUERY_TIMEOUT = Symbol("makeine-postgres-query-timeout");
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(QUERY_TIMEOUT), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+// The client object of postgres.js. `ReturnType<typeof postgres>` avoids needing
+// to import the namespace-internal `Sql` type directly.
+type Sql = ReturnType<typeof postgres>;
+type TransactionSql = Parameters<Parameters<Sql["begin"]>[1]>[0];
 
 export type QueryResult<T> = { rows: T[]; changes: number };
 export interface DatabaseExecutor {
   query<T = Record<string, unknown>>(sql: string, values?: unknown[]): Promise<QueryResult<T>>;
 }
+export interface BoundStatement {
+  first<T = unknown>(): Promise<T | null>;
+  run(): Promise<{ meta: { changes: number } }>;
+}
+export interface PreparedStatement extends BoundStatement {
+  bind(...values: unknown[]): BoundStatement;
+}
 export interface AppDatabase extends DatabaseExecutor {
-  readonly dialect: "sqlite" | "postgres";
-  prepare(sql: string): ReturnType<LocalDatabase["prepare"]>;
+  readonly dialect: "postgres";
+  prepare(sql: string): PreparedStatement;
   transaction<T>(work: (tx: DatabaseExecutor) => Promise<T>): Promise<T>;
   ready(): Promise<void>;
   close(): void | Promise<void>;
-}
-
-/** Small prepared-statement adapter; game repositories do not depend on Bun APIs. */
-export class LocalDatabase {
-  readonly dialect = "sqlite" as const;
-  readonly sqlite: Database;
-  private transactionQueue: Promise<void> = Promise.resolve();
-  constructor(filename: string) {
-    mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
-    this.sqlite = new Database(filename, { create: true, strict: true });
-    try {
-      chmodSync(filename, 0o600);
-    } catch {
-      /* Windows ACLs are inherited. */
-    }
-    this.sqlite.exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;");
-    this.migrate();
-  }
-  private migrate() {
-    const migrations = [
-      `CREATE TABLE records (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL);
-       CREATE TABLE transcripts (id TEXT PRIMARY KEY NOT NULL, owner TEXT NOT NULL, character TEXT NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL);
-       CREATE INDEX idx_transcripts_owner ON transcripts(owner);`,
-      `CREATE TABLE harness_requests (owner TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT NOT NULL, digest TEXT NOT NULL, status TEXT NOT NULL, result TEXT, code INTEGER, updated INTEGER NOT NULL, PRIMARY KEY(owner,request_id));
-       CREATE TABLE harness_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, run_id TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, created INTEGER NOT NULL);
-       CREATE INDEX idx_harness_events_owner ON harness_events(owner,seq);`,
-      `CREATE TABLE twitter_jobs (owner TEXT NOT NULL, run_id TEXT NOT NULL, job_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,job_id));
-       CREATE INDEX idx_twitter_jobs_owner_run ON twitter_jobs(owner,run_id);
-       CREATE TABLE line_threads (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,character));
-       CREATE TABLE character_memories (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,character));
-       CREATE TABLE twitter_posts (owner TEXT NOT NULL, run_id TEXT NOT NULL, post_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,post_id));
-       CREATE TABLE game_logs (owner TEXT NOT NULL, run_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id));`,
-      `CREATE INDEX idx_harness_events_owner_created ON harness_events(owner,created);
-       DELETE FROM harness_events WHERE created < unixepoch('now')*1000-86400000 OR seq IN (
-         SELECT seq FROM (SELECT seq,ROW_NUMBER() OVER(PARTITION BY owner ORDER BY seq DESC) position FROM harness_events) ranked WHERE position>2000
-       );`,
-    ];
-    this.sqlite.transaction(() => {
-      const version = (this.sqlite.query("PRAGMA user_version").get() as { user_version: number })
-        .user_version;
-      if (version > migrations.length)
-        throw new Error("資料庫由較新版本建立，請更新套件後再啟動。");
-      for (let i = version; i < migrations.length; i++) {
-        this.sqlite.exec(migrations[i]);
-        this.sqlite.exec(`PRAGMA user_version=${i + 1}`);
-      }
-    })();
-  }
-  prepare(sql: string) {
-    const query = this.sqlite.query(sql);
-    const bound = (values: SQLQueryBindings[]) => ({
-      first: async <T>(): Promise<T | null> => query.get(...values) as T | null,
-      run: async () => {
-        const result = query.run(...values);
-        return { meta: { changes: result.changes } };
-      },
-    });
-    return { bind: (...values: SQLQueryBindings[]) => bound(values), ...bound([]) };
-  }
-  async query<T = Record<string, unknown>>(sql: string, values: unknown[] = []): Promise<QueryResult<T>> {
-    const statement = this.sqlite.query(sql);
-    if (/^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql) || /\bRETURNING\b/i.test(sql)) {
-      const rows=statement.all(...values as SQLQueryBindings[]) as T[];
-      return { rows, changes: rows.length };
-    }
-    const result = statement.run(...values as SQLQueryBindings[]);
-    return { rows: [], changes: result.changes };
-  }
-  async transaction<T>(work: (tx: DatabaseExecutor) => Promise<T>): Promise<T> {
-    let release!: () => void;
-    const previous = this.transactionQueue;
-    this.transactionQueue = new Promise<void>(resolve => { release = resolve; });
-    await previous;
-    this.sqlite.exec("BEGIN IMMEDIATE");
-    try { const result = await work(this); this.sqlite.exec("COMMIT"); return result; }
-    catch (error) { this.sqlite.exec("ROLLBACK"); throw error; }
-    finally { release(); }
-  }
-  async ready() {}
-  close() {
-    this.sqlite.exec("PRAGMA wal_checkpoint(TRUNCATE)");
-    this.sqlite.close();
-  }
 }
 
 function postgresSql(sql: string) {
@@ -112,34 +48,75 @@ function postgresSql(sql: string) {
 
 export class PostgresDatabase implements AppDatabase {
   readonly dialect = "postgres" as const;
-  private readonly client: SQL;
+  private client: Sql;
   private readonly initialized: Promise<void>;
-  constructor(url: string) {
+  private readonly schema?: string;
+  private readonly url: string;
+  private readonly cacheKey: string;
+  constructor(url: string, schema?: string) {
     // Match copilot-v2's process-wide pool: hot reloads and repeated runtime
     // initialization must not create another independent set of connections.
+    // The schema is part of the cache key so parallel test files (each with
+    // its own schema/search_path) never share connections with each other.
+    const cacheKey = schema ? `${url}#schema=${schema}` : url;
     const globalForDb = globalThis as typeof globalThis & {
-      __makeinePostgresClients?: Map<string, SQL>;
+      __makeinePostgresClients?: Map<string, Sql>;
     };
     const clients = globalForDb.__makeinePostgresClients ??= new Map();
-    const existing = clients.get(url);
-    this.client = existing ?? new SQL(url, {
-      max: 10,
-      connection: {
-        TimeZone: "UTC",
-        lock_timeout: "5s",
-        idle_in_transaction_session_timeout: "10s",
-        statement_timeout: "30s",
-      },
-      prepare: false,
-      connectionTimeout: 10,
-      idleTimeout: 30,
-    });
-    if (!existing) clients.set(url, this.client);
+    const existing = clients.get(cacheKey);
+    this.url = url;
+    this.cacheKey = cacheKey;
+    this.schema = schema;
+    this.client = existing ?? this.makeClient();
+    if (!existing) clients.set(cacheKey, this.client);
     this.initialized = this.migrate();
   }
+  private makeClient(): Sql {
+    const connection: Record<string, string | number | boolean> = {
+      application_name: "makeine",
+      TimeZone: "UTC",
+      lock_timeout: "5s",
+      idle_in_transaction_session_timeout: "10s",
+      statement_timeout: "30s",
+    };
+    if (this.schema) connection.search_path = this.schema;
+    return postgres(this.url, {
+      max: 3,
+      connection,
+      prepare: false,
+      connect_timeout: 10,
+      idle_timeout: 30,
+      // postgres.js returns BIGINT (int8) as a string by default; this app uses
+      // the `updated` revision column (Date.now()) and row counts as JS numbers,
+      // so parse int8 back into a number for a consistent API with SQLite.
+      types: { int8: { from: [20], to: 20, parse: (v: string) => Number(v), serialize: (v: number) => String(v) } },
+    });
+  }
+  private async reconnect(): Promise<void> {
+    // Best-effort close of the desynced client; it may be mid-protocol so do not
+    // await it. A fresh pool with the same schema/search_path replaces it.
+    try { void this.client.end(); } catch { /* already closed */ }
+    this.client = this.makeClient();
+    const globalForDb = globalThis as typeof globalThis & {
+      __makeinePostgresClients?: Map<string, Sql>;
+    };
+    globalForDb.__makeinePostgresClients?.set(this.cacheKey, this.client);
+  }
+  private async guard<T>(op: () => Promise<T>): Promise<T> {
+    try {
+      return await withTimeout(op(), 2000);
+    } catch (e) {
+      if (e !== QUERY_TIMEOUT) throw e;
+      await this.reconnect();
+      return await op();
+    }
+  }
   private async migrate() {
+    if (this.schema) {
+      if (!/^[a-z0-9_]{1,63}$/.test(this.schema)) throw Error("無效的資料庫 schema。");
+      await this.client.unsafe(`CREATE SCHEMA IF NOT EXISTS ${this.schema}`);
+    }
     await this.client.unsafe(`
-      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
       CREATE TABLE IF NOT EXISTS records (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL);
       CREATE TABLE IF NOT EXISTS transcripts (id TEXT PRIMARY KEY NOT NULL, owner TEXT NOT NULL, character TEXT NOT NULL, text TEXT NOT NULL, created BIGINT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_transcripts_owner ON transcripts(owner);
@@ -231,11 +208,11 @@ export class PostgresDatabase implements AppDatabase {
   ready() { return this.initialized; }
   async query<T = Record<string, unknown>>(sql: string, values: unknown[] = []): Promise<QueryResult<T>> {
     await this.initialized;
-    const rows = await this.client.unsafe(postgresSql(sql), values) as T[] & { count?: number };
+    const rows = await this.guard(() => this.client.unsafe(postgresSql(sql), values as any[])) as T[] & { count?: number };
     return { rows: Array.from(rows), changes: rows.count ?? rows.length };
   }
-  prepare(sql: string) {
-    const bound = (values: unknown[]) => ({
+  prepare(sql: string): PreparedStatement {
+    const bound = (values: unknown[]): BoundStatement => ({
       first: async <T>(): Promise<T | null> => (await this.query<T>(sql, values)).rows[0] ?? null,
       run: async () => ({ meta: { changes: (await this.query(sql, values)).changes } }),
     });
@@ -243,12 +220,17 @@ export class PostgresDatabase implements AppDatabase {
   }
   async transaction<T>(work: (tx: DatabaseExecutor) => Promise<T>): Promise<T> {
     await this.initialized;
-    return this.client.begin(async sql => work({ query: async <R>(text: string, values: unknown[] = []) => {
-      const rows = await sql.unsafe(postgresSql(text), values) as R[] & { count?: number };
+    return this.guard(() => this.client.begin(async (sql: TransactionSql) => work({ query: async <R>(text: string, values: unknown[] = []) => {
+      const rows = await sql.unsafe(postgresSql(text), values as any[]) as R[] & { count?: number };
       return { rows: Array.from(rows), changes: rows.count ?? rows.length };
-    }}));
+    }})) as Promise<T>);
   }
   // The process-wide pool deliberately survives runtime/hot-reload teardown.
   // Bun closes it when the process exits, just like copilot-v2's postgres-js pool.
+  // This is why we do NOT call client.end() here: `bun test` runs files serially
+  // in one shared process, and ending a client while the pool still has queued
+  // work throws "Connection closed". Per-schema clients are bounded by the test
+  // postgres max_connections (see compose.test.yaml) and swept by
+  // scripts/drop-test-schemas.ts.
   close() {}
 }

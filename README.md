@@ -19,12 +19,6 @@
 
 完整素材來源與權利聲明請參閱 [NOTICE.md](NOTICE.md)。如不確定某項用途是否屬於商業用途，請先停止使用並向作者取得書面許可。
 
-### 公開版本內容政策
-
-- 全面禁止色情、性行為、性化裸露、戀物及性剝削內容；遊戲對話、場景、LINE、Twitter 與圖片生成的中、英、日提示詞均採相同限制。
-- 素材書庫不包含小說封面資料或封面圖檔。
-- 公眾帳號不附帶頭像與橫幅圖片，介面會使用無圖片的預設顯示。
-
 ### English
 
 This is an unofficial fan-made project created entirely without commercial purpose by fans who sincerely love *Too Many Losing Heroines!* (*Makeine*). It exists solely to express appreciation for the original work through fan creativity and community exchange. We respect the original work, its author, and all rightsholders, and strongly encourage everyone to purchase official releases and directly support the author and official production. The project is provided solely for personal research, study, community exchange, and noncommercial entertainment. It is not affiliated with, authorized by, sponsored by, or endorsed by the author, publisher, anime production committee, or any other rightsholder.
@@ -33,8 +27,6 @@ The original software code owned by the project author is available under the [P
 
 No license is granted to any third-party characters, names, stories, settings, official artwork, anime stills, novel illustrations, logos, trademarks, audio, or other third-party material. Their rights remain with their respective rightsholders. The labels “noncommercial,” “fan project,” and “unofficial” do not constitute permission from those rightsholders. Contributors must not submit third-party material unless they have all permissions necessary for its use and distribution. See [NOTICE.md](NOTICE.md) for details.
 
-The public edition prohibits sexual content, sexual acts, sexualized nudity, fetish content, and sexual exploitation across all game, scene, LINE, Twitter, and image-generation prompts in Chinese, English, and Japanese. It includes no novel-cover records or files, and public accounts ship without avatar or banner images.
-
 ### 日本語
 
 本プロジェクトは、『負けヒロインが多すぎる！』を心から愛するファンが、営利を一切目的とせずに制作した非公式のファンプロジェクトです。ファン創作と交流を通じて原作への愛情と敬意を表すことのみを目的としています。原作、原作者およびすべての権利者を尊重し、正規版を購入して原作者と公式展開を直接応援することを強く推奨します。本プロジェクトは、個人による研究、学習、ファン同士の交流および非営利の娯楽のみを目的としています。原作者、出版社、アニメ製作委員会その他の権利者とは提携しておらず、許諾、協賛または推奨を受けたものではありません。
@@ -42,8 +34,6 @@ The public edition prohibits sexual content, sexual acts, sexualized nudity, fet
 プロジェクト作者が著作権を有するオリジナルのソフトウェアコードは、[PolyForm Noncommercial License 1.0.0](LICENSE) に基づいて提供されます。これは **ソース公開型（source-available）の非商用ライセンス**であり、MIT License または OSI の定義に準拠するオープンソースライセンスではありません。商用製品、有料サービス、広告収益を伴う利用、クラウドファンディングの返礼、販売、商用ホスティング、企業内の商用プロジェクト、その他商用利用が予定される用途には、プロジェクト作者の事前の書面による許可が必要です。
 
 第三者が権利を有するキャラクター、名称、物語、設定、公式画像、アニメの場面画像、小説の挿絵、ロゴ、商標、音声その他の素材について、本プロジェクトは一切の利用許諾を与えるものではありません。これらの権利は各権利者に帰属します。「非営利」「ファンプロジェクト」「非公式」と表示しても、権利者から許諾を得たことにはなりません。コントリビューターは、利用および配布に必要な権利を有しない第三者素材を提出してはなりません。詳細は [NOTICE.md](NOTICE.md) を参照してください。
-
-公開版では、中国語・英語・日本語のゲーム、シーン、LINE、Twitterおよび画像生成のすべてのプロンプトにおいて、性的コンテンツ、性行為、性的な裸体表現、フェティッシュ表現および性的搾取を禁止しています。小説表紙のデータや画像ファイルは含まず、公開アカウントにもアイコンおよびヘッダー画像を同梱していません。
 
 ## 儲存架構
 
@@ -179,14 +169,16 @@ docker compose -f compose.dev.yaml down -v
 
 ### dev 與正式資料隔離
 
-| 服務 | 正式環境 | 開發環境 |
-| --- | --- | --- |
-| PostgreSQL 主機 port | 5438 | 5439 |
-| PostgreSQL database | `MAKEIN_DB` | `MAKEIN_DEV_DB` |
-| PostgreSQL volume | `adv_postgres_data` | `makein-dev_dev_postgres_data` |
-| S3 主機 port | 8333 | 8334 |
-| S3 bucket | `makein-s3` | `makein-dev-s3` |
-| S3 volume | `adv_s3_data` | `makein-dev_dev_s3_data` |
+| 服務 | 正式環境 | 開發環境 | 測試環境 |
+| --- | --- | --- | --- |
+| PostgreSQL 主機 port | 5438 | 5439 | 5450 |
+| PostgreSQL database | `MAKEIN_DB` | `MAKEIN_DEV_DB` | `MAKEIN_TEST_DB` |
+| PostgreSQL volume | `adv_postgres_data` | `makein-dev_dev_postgres_data` | `makein-test_test_postgres_data` |
+| S3 主機 port | 8333 | 8334 | —（測試無 S3） |
+| S3 bucket | `makein-s3` | `makein-dev-s3` | — |
+| S3 volume | `adv_s3_data` | `makein-dev_dev_s3_data` | — |
+
+三個環境使用不同的 compose project（`adv`／`makein-dev`／`makein-test`）、資料卷、資料庫與網路，且宿主機埠完全不重疊，故可同時存在、互不干擾。完整啟動方式、連線資訊、隔離原則與跨平台注意事項見 [環境區分](docs/environments.md)。
 
 ## API 與 Editor 設定
 
@@ -196,7 +188,7 @@ LLM 使用 OpenAI 相容的 Chat Completions URL、API key 與 model。Stable Di
 
 ### Stable Diffusion 推薦資源
 
-本專案使用 [AUTOMATIC1111 Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) 相容 API。Checkpoint 與 LoRA 必須選擇相容的模型家族，並請自行閱讀各下載頁面的授權、使用限制及建議參數。
+本專案使用 [AUTOMATIC1111 Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) 相容 API，初次設定預設選擇 **Pony**；如果資料庫中已有設定，則會保留原本選擇，不會自動覆寫。Checkpoint 與 LoRA 必須選擇相容的模型家族，並請自行閱讀各下載頁面的授權、使用限制及建議參數。
 
 - Pony 推薦模型：[Zuki Clean Anime Mix](https://civitai.com/models/880541/zuki-clean-anime-mix)
 - Illustrious 推薦模型：[Nova Anime XL](https://civitai.com/models/376130/nova-anime-xl?modelVersionId=2940478)
@@ -231,6 +223,8 @@ npm run check
 npm test
 npm run build
 ```
+
+> `npm test`（= `bun test --timeout=40000 ./tests`）需要一個執行中的 PostgreSQL 測試庫（`docker compose -f compose.test.yaml up -d`，本機 5450 埠），`tests/bootstrap.ts` 讀 `MAKEIN_TEST_DATABASE_URL` 連線。測試庫未啟動時請先啟動後再跑測試。
 
 ## 專案結構
 

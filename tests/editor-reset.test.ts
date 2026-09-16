@@ -36,7 +36,10 @@ test('reset restores current source, preserves other records and rejects stale r
     expect(result.content).toEqual(expected);
     expect(result.revision).toBeGreaterThan(current.revision);
     expect(await read<unknown>('content', null)).toEqual(expected);
-    expect(await read<unknown>('game:test', null)).toEqual({ marker: 'save' });
+    // Under PostgreSQL the `game:` key is GameState-reserved: write() empties the
+    // message/memory/log sections into their own tables (gameCore) and read()
+    // re-merges them (hydrateGame), so a minimal value round-trips with defaults.
+    expect(await read<unknown>('game:test', null)).toEqual({ marker: 'save', messages: {}, memories: {}, log: [] });
     expect(await read<unknown>('api-settings', null)).toEqual({ model: 'custom' });
     expect(readFileSync(file, 'utf8')).toBe(JSON.stringify(source));
     expect((await reset(current.revision)).status).toBe(400);

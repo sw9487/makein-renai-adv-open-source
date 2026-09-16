@@ -40,7 +40,7 @@ test('state commit and request settlement are atomic even if response processing
   await admittedRequest('owner',input,work);
   const replay=await admittedRequest('owner',input,work);
   expect(replay.status).toBe(200);expect((await replay.json()).state.revision).toBe(next.revision);
-  expect((await db().query<any>('SELECT count(*) AS n FROM harness_events')).rows[0].n).toBe(1);
+  expect(Number((await db().query<any>('SELECT count(*) AS n FROM harness_events')).rows[0].n)).toBe(1);
  }finally{close();}
 });
 
@@ -61,9 +61,9 @@ test('real game API repeats one LINE reply and rejects old-run replay',async()=>
 
 test('SSE replay follows durable seq and never exposes another owner',async()=>{
  const close=runtime();const abort=new AbortController();try{
-  appendEvent('one','r','line.received',{revision:1});
-  appendEvent('two','r','line.received',{private:'not-for-one'});
-  appendEvent('one','r','line.received',{revision:2});
+  await appendEvent('one','r','line.received',{revision:1});
+  await appendEvent('two','r','line.received',{private:'not-for-one'});
+  await appendEvent('one','r','line.received',{revision:2});
   const stream=eventStream(new Request('http://localhost/api/game?events=1',{headers:{'Last-Event-ID':'1'},signal:abort.signal}),'one');
   const reader=stream.body!.getReader();const data=new TextDecoder().decode((await reader.read()).value);
   expect(data).toContain('id: 3');expect(data).toContain('"revision":2');expect(data).not.toContain('not-for-one');
@@ -74,7 +74,12 @@ test('SSE replay follows durable seq and never exposes another owner',async()=>{
 test('SSE retention keeps only fresh events and the newest 2000 per owner',async()=>{
  const close=runtime();try{const database=db(),now=Date.now();
  await database.query("DELETE FROM harness_events WHERE owner IN ('retained','other')");
- for(let i=0;i<2001;i++)await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['retained','r','game.changed','{}',now]);
+ // Bulk-insert 2001 events in one round-trip: probing retention with 2001
+ // serialized single-row inserts trips the 5s test timeout over the postgres
+ // network. A single multi-VALUES statement preserves intent and runs in ms.
+ const batch:string[]=[];const batchValues:unknown[]=[];
+ for(let i=0;i<2001;i++){batch.push(`($${batchValues.length+1},$${batchValues.length+2},$${batchValues.length+3},$${batchValues.length+4},$${batchValues.length+5})`);batchValues.push('retained','r','game.changed','{}',now);}
+ await database.query(`INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES ${batch.join(',')}`,batchValues);
  await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['retained','r','game.changed','{}',now-25*60*60*1000]);
  await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['other','r','game.changed','{}',now-25*60*60*1000]);
  await appendEvent('retained','r','game.changed',{revision:1});

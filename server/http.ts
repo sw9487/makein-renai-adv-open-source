@@ -71,7 +71,7 @@ export function startServer(options: RuntimeOptions & { clientDir: string; versi
               app: "@sw9487/makein-renai-adv",
               version: options.version,
               status: "ready",
-              database: options.env.DATABASE_URL ? "postgresql" : "sqlite",
+              database: "postgresql",
               assets: options.env.S3_ENDPOINT ? "s3" : "filesystem",
             });
           }

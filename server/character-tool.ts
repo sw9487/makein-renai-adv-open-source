@@ -2,7 +2,7 @@
 import {prompt} from './prompt';
 export const characterExpressions = ['normal','happy','angry','sad','surprised','shy','suspicious','crying','enduring','cold','awkward','flustered','flushed','smug','inviting','excited','disdainful','troubled','dazed','faint','breakdown'] as const;
 export type CharacterExpression = typeof characterExpressions[number];
-export const characterActionKinds=['twitter_follow','twitter_unfollow','twitter_post','line_message'] as const;
+export const characterActionKinds=['twitter_follow','twitter_unfollow','twitter_post','twitter_set_private','line_message'] as const;
 export type CharacterAction={kind:typeof characterActionKinds[number];target:string;text:string;image:boolean};
 export type CharacterReply = {memoryFacts?:{kind:'promise'|'relationship'|'event'|'preference';text:string}[];speech:string;narration:string;thought:string|null;expression?:CharacterExpression;affectionDelta?:number;twitterPost?:string;actions?:CharacterAction[];respond?:boolean;conversationClosed?:boolean;choices?:{text:string;reply:string;delta:number}[]};
 export const characterTool = {
@@ -76,8 +76,8 @@ export function parseCharacterReply(data:unknown,line=false,allowChoices=false):
     if(!raw||!characterActionKinds.includes(raw.kind)||typeof raw.target!=='string'||typeof raw.text!=='string'||raw.image!==undefined&&typeof raw.image!=='boolean'||Object.keys(raw).some(key=>!['kind','target','text','image'].includes(key)))throw Error(prompt('error.characterActions'));
     const target=raw.target.trim(),text=raw.text.trim();
     const image=raw.image===true;
-    if(raw.kind==='twitter_post'?target||!text||text.length>280:raw.kind==='line_message'?target!=='kazuhiko'||!text||text.length>1500:!target||text||image)throw Error(prompt('error.characterActions'));
-    if(actions.some(action=>action.kind===raw.kind&&action.target===target))throw Error(prompt('error.characterActions'));
+    if(raw.kind==='twitter_post'?target||!text||text.length>280:raw.kind==='line_message'?target!=='kazuhiko'||!text||text.length>1500:raw.kind==='twitter_set_private'?!['private','public'].includes(target)||!!text||image:!target||text||image)throw Error(prompt('error.characterActions'));
+    if(actions.some(action=>action.kind===raw.kind&&(raw.kind==='twitter_set_private'||action.target===target)))throw Error(prompt('error.characterActions'));
     actions.push({kind:raw.kind,target,text,image});
   }
   if(r)delete r.actions;

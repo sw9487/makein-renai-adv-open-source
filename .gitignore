@@ -19,13 +19,3 @@ web/tsconfig.tsbuildinfo
 /content/downloads/lora-models/
 .migration-backup.sqlite
 /dev-docker/
-
-# Public-release exclusions: do not publish book covers, public-account artwork,
-# or the removed erotic prompt reference even if they exist in a local source copy.
-/content/assets/books/
-/web/public/assets/twitter-official/
-/gen_img_skills/
-/knowledge/erotica-core/
-/knowledge/jc-character/
-/knowledge/jk-character/
-/knowledge/kyoukon/

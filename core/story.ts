@@ -5,6 +5,7 @@ import {addCanonEvents} from './canon-events';
 import {addNovelEvents} from './novel-events';
 import {addMomozono} from './momozono';
 import {addContinuation} from './mainline-continuation';
+import {addNovelBooks} from './novel-books';
 import {addOfficialPlaces} from './official-places';
 /** Upgrade only untouched built-in text, preserving custom editor scripts. */
 export function upgradeStories(input:Content):Content {
@@ -15,5 +16,5 @@ export function upgradeStories(input:Content):Content {
   e.text=patch.text;e.script=patch.script as StoryLine[];
   if(patch.choices) e.choices=patch.choices;
  }
- return addOfficialPlaces(addContinuation(addMomozono(addNovelEvents(addCanonEvents(repairKajuStories(c))))));
+ return addOfficialPlaces(addNovelBooks(addContinuation(addMomozono(addNovelEvents(addCanonEvents(repairKajuStories(c)))))));
 }

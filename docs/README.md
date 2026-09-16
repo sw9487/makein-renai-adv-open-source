@@ -5,6 +5,7 @@
 | 文件 | 內容 |
 | --- | --- |
 | [開發指南](development-guide.md) | 本機開發、架構與測試 |
+| [環境區分](environments.md) | 正式／開發／測試環境的啟動、連線與隔離 |
 | [LLM 與 Editor](ai-editor.md) | AI 設定、驗證與 Editor 行為 |
 | [日曆](calendar.md) | 日期與事件系統 |
 | [LINE](line.md) | LINE 模擬功能 |

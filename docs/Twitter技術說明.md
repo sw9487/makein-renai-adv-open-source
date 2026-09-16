@@ -197,7 +197,7 @@ Escape 會關閉候選而不只是重設選中項目，繼續輸入後重新開�
 
 ```sh
 bun run check
-bun test
+bun run test
 bun run build
 bun scripts/twitter-live-audit.ts --live
 ```

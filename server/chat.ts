@@ -90,7 +90,7 @@ export async function converse(
       configuredPrompt(character.prompt,{name:character.name,bio:character.bio}),
       prompt('chat.action'),
       prompt('chat.expression',{available:availableExpressions.join(', ')}),
-      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitterAccounts.map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,private:account.private,following:!!twitter?.following[id]?.[accountId],followsActor:!!twitter?.following[accountId]?.[id]})),mentionableFriends})}),
+      prompt('chat.actions',{state:JSON.stringify({actorId:id,playerId:'kazuhiko',availableActions,actorPrivate:twitter?.accounts[id]?.private??false,playerPrivate:twitter?.accounts.kazuhiko?.private??false,followingPlayer:twitter?.following[id]?.kazuhiko??false,pendingPlayerRequest:twitter?.requests.kazuhiko?.[id]??false,blockedPlayer:twitter?.blocks?.[id]?.kazuhiko??false,blockedByPlayer:twitter?.blocks?.kazuhiko?.[id]??false,accounts:twitterAccounts.map(([accountId,account])=>({id:accountId,name:c.characters.find(ch=>ch.id===accountId)?.name??accountId,private:account.private,following:!!twitter?.following[id]?.[accountId],followsActor:!!twitter?.following[accountId]?.[id]})),mentionableFriends})}),
       sceneTimePrompt(s,c,s.character===id),
       knowledge,
       webKnowledge,

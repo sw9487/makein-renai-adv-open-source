@@ -22,7 +22,7 @@ class ImageFailure extends Error {}
 export type ImageSettings={modelFamily:ModelFamily;clipSkip:number;enabled:boolean;automatic:boolean;url:string;key:string;checkpoint:string;guide:string;sizePreset:ImageSizePreset;width:number;height:number;steps:number;cfg:number;sampler:string;scheduler:string;hiresFix:boolean;upscaler:string;upscaleBy:number;hiresSteps:number;denoising:number};
 export async function imageSettings():Promise<ImageSettings>{
  const saved=await read<Partial<ImageSettings>>('stable-diffusion',{});
- const modelFamily=saved.modelFamily==='Pony'?'Pony':'Illustrious';
+ const modelFamily=saved.modelFamily==='Illustrious'?'Illustrious':'Pony';
  const base={enabled:bindings.SD_ENABLED==='true',automatic:bindings.SD_AUTO_STORY==='true',url:bindings.SD_API_URL??'',key:bindings.SD_API_KEY??'',checkpoint:'',sizePreset:'small' as const,...imageDimensions('small')};
  const settings:ImageSettings={...base,...modelDefaults(modelFamily),...saved,...(!saved.modelFamily?modelDefaults(modelFamily):{}),modelFamily};
  // Older saved guides predate Shikiya. Add her model-specific reference without
@@ -141,7 +141,7 @@ export async function requestImage(s:GameState,c:Content,mode:'manual'|'automati
   // --- Pass 1: Skill selection (lightweight ~300 chars menu) ---
   let selectedSkills:SkillCategory[]=[];
   const pass1Resp=await modelFetch(endpoint,{method:'POST',redirect:'error',signal:signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+ai.key},body:JSON.stringify({model:ai.model,stream:false,max_tokens:300,tools:[loadSkillsTool],tool_choice:'auto',parallel_tool_calls:false,messages:[{role:'system',content:prompt('image.unlock')+'\n'+prompt('image.skillSelector')+'\n'+skillMenu()},{role:'user',content:scenePayload}]})});
-  if(pass1Resp.ok){const p1msg=(await pass1Resp.json()).choices?.[0]?.message;const p1calls=p1msg?.tool_calls;if(p1calls?.length&&p1calls[0].function?.name==='load_skills'){try{const parsed=JSON.parse(p1calls[0].function.arguments);if(Array.isArray(parsed.categories))selectedSkills=parsed.categories.filter((c:string)=>['violent','bloody','grotesque'].includes(c)) as SkillCategory[];}catch{}}}
+  if(pass1Resp.ok){const p1msg=(await pass1Resp.json()).choices?.[0]?.message;const p1calls=p1msg?.tool_calls;if(p1calls?.length&&p1calls[0].function?.name==='load_skills'){try{const parsed=JSON.parse(p1calls[0].function.arguments);if(Array.isArray(parsed.categories))selectedSkills=parsed.categories.filter((c:string)=>['erotic','violent','bloody','grotesque'].includes(c)) as SkillCategory[];}catch{}}}
   const skillBlock=loadSkillContent(selectedSkills);
   // --- Pass 2: Image generation (character-aware and strictly person-free tools) ---
   const registry=new ToolRegistry();

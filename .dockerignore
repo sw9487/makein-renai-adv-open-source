@@ -5,10 +5,3 @@ web/node_modules
 dist
 data
 *.log
-content/assets/books
-web/public/assets/twitter-official
-gen_img_skills
-knowledge/erotica-core
-knowledge/jc-character
-knowledge/jk-character
-knowledge/kyoukon

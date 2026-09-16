@@ -6,6 +6,8 @@
 
 從專案根目錄執行 `npm ci`、`npm ci --prefix web`，再使用 `npm run dev`（預設 9487）啟動開發伺服器。前端由 `vite build` 打包到 `dist/client`，由伺服器在 9487 提供。`package.json` 列有完整檢查指令。開發資料庫、上傳和密鑰不是版控內容；Editor 儲存內容只寫本機玩家資料目錄。不要把測試與實機診斷指向玩家存檔。
 
+> 開發環境使用 `compose.dev.yaml`（postgres-dev 5439、s3-dev 8334），伺服器在本機跑 Bun；與正式（`compose.yaml`）及測試（`compose.test.yaml`）的容器、資料卷、資料庫與網路各自獨立、互不干擾。完整啟動方式與隔離對照見[環境區分](environments.md)。SQLite 已移除，因此開發前務必先啟動 postgres-dev。
+
 ## LLM payload 規則
 
 1. **不允許的能力不要寫進 payload。** 若某情境不能生圖、不能搜尋或不能操作某類資料，就不要提供對應 tool、tool 參數、圖片或上下文。不得以「仍提供能力，再用 prompt 要求模型不要使用」代替結構限制。
@@ -30,7 +32,9 @@
 - 不允許的 tool 或欄位確實不存在，而不只是值為 `false`。
 - 未選定目標前不含圖片；選定後只含對應的一張圖片。
 - 模型回傳越權 action、額外能力或過期 target 時，伺服器拒絕套用。
-- 完整執行 `bun run check`、`bun run audit:i18n`、`bun test ./tests` 與 `bun run build`。
+- 完整執行 `bun run check`、`bun run audit:i18n`、`bun run test` 與 `bun run build`。
+
+> 測試環境：測試依賴一個 PostgreSQL 測試庫（見 `compose.test.yaml`，本機 5450 埠），由 `tests/bootstrap.ts` 透過 `MAKEIN_TEST_DATABASE_URL`（預設 `postgresql://admin:105114@127.0.0.1:5450/MAKEIN_TEST_DB`）連線。`bun run test` 已內含 `--timeout=40000`——因為 postgres.js 較慢、且連線 desync 的還原會讓 web-search 等案例超過 Bun 預設 5 秒；直接 `bun test ./tests` 不會帶這個參數（Bun 1.3.14 會忽略 `bunfig.toml [test].timeout`）。重複測試前可先 `bun scripts/drop-test-schemas.ts` 清掉累積的測試 schema。
 
 內容事件或地圖更新另跑對應 `tests/canon-events.test.ts`、`tests/novel-events.test.ts`、`tests/mainline-continuation.test.ts`、`tests/momozono.test.ts`；社群、圖片、知識與搜尋有各自同名測試。外部真實 API 的 live audit 可能消耗額度，應以隔離存檔且明確按需執行；模擬測試通過不等於所有模型文筆或 SD 畫質都已目視驗證。
 
