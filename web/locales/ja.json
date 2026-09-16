@@ -712,7 +712,9 @@
     "displays_the_mobile_sidebar": "モバイル用サイドバーを表示します。",
     "toggle_sidebar": "サイドバーを切り替え",
     "loading": "読み込み中",
-    "close_toast": "通知を閉じる"
+    "close_toast": "通知を閉じる",
+    "invalid_database_schema": "無効なデータベーススキーマです。",
+    "database_url_not_configured": "DATABASE_URL が設定されていません（SQLite は削除済みのため、PostgreSQL 接続文字列を指定してください）。"
   },
   "cli": {
     "update_bun_to_1_3_or_newer": "Bun を1.3以降に更新してください。",
@@ -1784,7 +1786,9 @@
     "technical.illustrious": "Illustrious",
     "technical.pony": "Pony",
     "technical.models_lora": "models/Lora/",
-    "technical.cfg": "CFG"
+    "technical.cfg": "CFG",
+    "show_remaining_replies": "残り {0} 件の返信を表示…",
+    "collapse_replies": "返信を折りたたむ"
   },
   "prompts": {
     "memory.unknownDate": "日付不明",
@@ -2067,6 +2071,7 @@
     "image.duplicateGeneration": "画像モデルが1回のターンで複数の生成を要求したため、重複した画像生成を防止しました。",
     "game.error.sceneChanged": "別のタブで物語が進みました。現在の進行状況を読み込み直してください。",
     "game.error.concurrentChange": "同じ項目が同時に更新されました。現在の進行状況を確認してから再試行してください。",
-    "image.workflow": "画像生成の手順：①現在のモデル {model} に対応する get_character_tags を呼び出し、映る各キャラクターの完全なタグ文字列を取得して、そのまま prompt の先頭に置く。②generate_image を呼び出し、完全な prompt、negative_prompt、loras、caption を渡す。物語の身体、服装の状態、表情、動作、場面の詳細を含む視覚的状況を booru タグへ忠実に変換し、内容の種類によって省略しない。LoRA は以下のガイドの名前だけを選び、prompt に LoRA 構文を含めない。\n現在のモデル：{model}。利用可能な LoRA の正確な名前（この一覧のみ）：{loras}"
+    "image.workflow": "画像生成の手順：①現在のモデル {model} に対応する get_character_tags を呼び出し、映る各キャラクターの完全なタグ文字列を取得して、そのまま prompt の先頭に置く。②generate_image を呼び出し、完全な prompt、negative_prompt、loras、caption を渡す。物語の身体、服装の状態、表情、動作、場面の詳細を含む視覚的状況を booru タグへ忠実に変換し、内容の種類によって省略しない。LoRA は以下のガイドの名前だけを選び、prompt に LoRA 構文を含めない。\n現在のモデル：{model}。利用可能な LoRA の正確な名前（この一覧のみ）：{loras}",
+    "twitter.blockTrigger": "プレイヤーがあなたのTwitterをブロックしたが、交換済みのLINEでは連絡できる。性格、好感、関係の記憶、友情の重要さからLINEで理由を尋ねるか判断する。システム項目や数値を口にしない。"
   }
 }

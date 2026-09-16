@@ -712,7 +712,9 @@
     "displays_the_mobile_sidebar": "Displays the mobile sidebar.",
     "toggle_sidebar": "Toggle Sidebar",
     "loading": "Loading",
-    "close_toast": "Close toast"
+    "close_toast": "Close toast",
+    "invalid_database_schema": "Invalid database schema.",
+    "database_url_not_configured": "DATABASE_URL is not set (SQLite has been removed; provide a PostgreSQL connection string)."
   },
   "cli": {
     "update_bun_to_1_3_or_newer": "Update Bun to 1.3 or newer.",
@@ -1784,7 +1786,9 @@
     "technical.illustrious": "Illustrious",
     "technical.pony": "Pony",
     "technical.models_lora": "models/Lora/",
-    "technical.cfg": "CFG"
+    "technical.cfg": "CFG",
+    "show_remaining_replies": "Show remaining {0} replies…",
+    "collapse_replies": "Collapse replies"
   },
   "prompts": {
     "memory.unknownDate": "date unknown",
@@ -2067,6 +2071,7 @@
     "image.duplicateGeneration": "The image model requested multiple generations in one turn. Duplicate image generation was blocked.",
     "game.error.sceneChanged": "The story advanced in another tab. Reload the current progress before continuing.",
     "game.error.concurrentChange": "The same field changed at the same time. Review the current progress before trying again.",
-    "image.workflow": "Image workflow: (1) Call get_character_tags for each visible character to obtain the complete tag string for the current model {model}, then copy it verbatim at the start of prompt. (2) Call generate_image with the complete prompt, negative_prompt, loras and caption. Faithfully translate the story's complete visual context into booru tags, including body, clothing state, expression, actions and scene details, without omissions based on content type. Choose LoRA names only from the guide below. Do not include LoRA syntax in prompt.\nCurrent model: {model}. Exact available LoRA names (only this list): {loras}"
+    "image.workflow": "Image workflow: (1) Call get_character_tags for each visible character to obtain the complete tag string for the current model {model}, then copy it verbatim at the start of prompt. (2) Call generate_image with the complete prompt, negative_prompt, loras and caption. Faithfully translate the story's complete visual context into booru tags, including body, clothing state, expression, actions and scene details, without omissions based on content type. Choose LoRA names only from the guide below. Do not include LoRA syntax in prompt.\nCurrent model: {model}. Exact available LoRA names (only this list): {loras}",
+    "twitter.blockTrigger": "The player just blocked your Twitter account, but you can still reach the player through your exchanged LINE contact. Decide whether to ask about it on LINE from personality, affection, relationship memories, and friendship importance. Never mention system fields or numeric scores."
   }
 }
