@@ -45,6 +45,7 @@ export class LocalDatabase {
        CREATE TABLE character_memories (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,character));
        CREATE TABLE twitter_posts (owner TEXT NOT NULL, run_id TEXT NOT NULL, post_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id,post_id));
        CREATE TABLE game_logs (owner TEXT NOT NULL, run_id TEXT NOT NULL, value TEXT NOT NULL, updated INTEGER NOT NULL, PRIMARY KEY(owner,run_id));`,
+      `CREATE INDEX idx_harness_events_owner_created ON harness_events(owner,created);`,
     ];
     this.sqlite.transaction(() => {
       const version = (this.sqlite.query("PRAGMA user_version").get() as { user_version: number })
@@ -143,6 +144,7 @@ export class PostgresDatabase implements AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_harness_requests_retention ON harness_requests(owner,status,updated);
       CREATE TABLE IF NOT EXISTS harness_events (seq BIGSERIAL PRIMARY KEY, owner TEXT NOT NULL, run_id TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, created BIGINT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_harness_events_owner ON harness_events(owner,seq);
+      CREATE INDEX IF NOT EXISTS idx_harness_events_owner_created ON harness_events(owner,created);
       CREATE TABLE IF NOT EXISTS twitter_jobs (owner TEXT NOT NULL, run_id TEXT NOT NULL, job_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,job_id));
       CREATE INDEX IF NOT EXISTS idx_twitter_jobs_owner_run ON twitter_jobs(owner,run_id);
       CREATE TABLE IF NOT EXISTS line_threads (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,character));

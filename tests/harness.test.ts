@@ -71,6 +71,19 @@ test('SSE replay follows durable seq and never exposes another owner',async()=>{
  }finally{abort.abort();close();}
 });
 
+test('SSE retention keeps only fresh events and the newest 2000 per owner',async()=>{
+ const close=runtime();try{const database=db(),now=Date.now();
+ await database.query("DELETE FROM harness_events WHERE owner IN ('retained','other')");
+ for(let i=0;i<2001;i++)await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['retained','r','game.changed','{}',now]);
+ await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['retained','r','game.changed','{}',now-25*60*60*1000]);
+ await database.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',['other','r','game.changed','{}',now-25*60*60*1000]);
+ await appendEvent('retained','r','game.changed',{revision:1});
+ const retained=(await database.query<{n:number;oldest:number}>('SELECT COUNT(*) n,MIN(created) oldest FROM harness_events WHERE owner=?',['retained'])).rows[0];
+ expect(Number(retained.n)).toBeLessThanOrEqual(2000);expect(Number(retained.n)).toBeGreaterThan(0);expect(Number(retained.oldest)).toBeGreaterThan(now-24*60*60*1000);
+ expect(Number((await database.query<{n:number}>('SELECT COUNT(*) n FROM harness_events WHERE owner=?',['other'])).rows[0].n)).toBe(1);
+ }finally{close();}
+});
+
 test('context budget removes complete exchanges without modifying source messages',()=>{
  const body={max_tokens:100,messages:[{role:'system',content:'Character and current date'},{role:'assistant',content:'x'.repeat(6000),tool_calls:[{id:'call'}]},{role:'tool',tool_call_id:'call',content:'old result'},{role:'user',content:'Current question'}]};
  const result=budgetRequest(body,1000);

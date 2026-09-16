@@ -2,10 +2,13 @@ import {db,runtimeConfig} from './runtime';
 import type {DatabaseExecutor} from './database';
 const listeners=new Map<string,Set<()=>void>>();
 const channel=(owner:string)=>runtimeConfig().dataDir+':'+owner;
+const eventRetentionMs=24*60*60*1000;
+const eventRetentionCount=2000;
 
 export async function appendEvent(owner:string,runId:string,type:string,payload:unknown,executor:DatabaseExecutor=db()){
-  await executor.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',[owner,runId,type,JSON.stringify(payload),Date.now()]);
-  await executor.query('DELETE FROM harness_events WHERE owner=? AND seq < (SELECT seq FROM harness_events WHERE owner=? ORDER BY seq DESC LIMIT 1 OFFSET 9999)',[owner,owner]);
+  const now=Date.now();
+  await executor.query('INSERT INTO harness_events(owner,run_id,type,payload,created) VALUES(?,?,?,?,?)',[owner,runId,type,JSON.stringify(payload),now]);
+  await executor.query('DELETE FROM harness_events WHERE owner=? AND (created<? OR seq < COALESCE((SELECT seq FROM harness_events WHERE owner=? ORDER BY seq DESC LIMIT 1 OFFSET ?),0))',[owner,now-eventRetentionMs,owner,eventRetentionCount-1]);
 }
 export function notifyEvents(owner:string){for(const wake of listeners.get(channel(owner))??[])wake();}
 export function eventStream(req:Request,owner:string){
