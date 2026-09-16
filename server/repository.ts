@@ -114,8 +114,8 @@ export async function commit(owner: string, s: GameState, old: GameState,options
       job.posts=job.trigger?.postId?[job.trigger.postId]:[];
   }
   await serializeCommit(owner,()=>db().transaction(async tx=>{
-    const stored=JSON.stringify(gameCore(s)),oldStored=JSON.stringify(gameCore(old)),oldLegacy=JSON.stringify(old);
-    const result=await tx.query<{key:string}>('UPDATE records SET value=?,updated=? WHERE key=? AND (value=? OR value=?) RETURNING key',[stored,Date.now(),'game:'+owner,oldStored,oldLegacy]);
+    const stored=JSON.stringify(gameCore(s));
+    const result=await tx.query<{key:string}>("UPDATE records SET value=?,updated=? WHERE key=? AND CAST(json_extract(value,'$.revision') AS BIGINT)=? AND COALESCE(json_extract(value,'$.runId'),'')=? RETURNING key",[stored,Date.now(),'game:'+owner,old.revision,old.runId??'']);
     if(result.rows.length!==1)throw new ProgressConflictError('進度已在另一個分頁更新，請重新整理。');
     const reset=!!options?.resetRun||old.runId!==s.runId,runId=s.runId??'';
     if(reset)await tx.query('DELETE FROM twitter_jobs WHERE owner=?',[owner]);

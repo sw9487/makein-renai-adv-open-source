@@ -94,7 +94,8 @@ export class LocalDatabase {
 
 function postgresSql(sql: string) {
   let index = 0;
-  let text = sql.replace(/\?/g, () => `$${++index}`);
+  let text = sql.replace(/json_extract\(([^,]+),\s*'\$\.([A-Za-z0-9_]+)'\)/g,"($1::jsonb->>'$2')");
+  text = text.replace(/\?/g, () => `$${++index}`);
   const ignored = /^\s*INSERT\s+OR\s+IGNORE\s+INTO/i.test(text);
   if (ignored) {
     text = text.replace(/INSERT\s+OR\s+IGNORE\s+INTO/i, "INSERT INTO");
