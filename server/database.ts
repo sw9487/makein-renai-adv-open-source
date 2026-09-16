@@ -8,6 +8,7 @@ export interface DatabaseExecutor {
   query<T = Record<string, unknown>>(sql: string, values?: unknown[]): Promise<QueryResult<T>>;
 }
 export interface AppDatabase extends DatabaseExecutor {
+  readonly dialect: "sqlite" | "postgres";
   prepare(sql: string): ReturnType<LocalDatabase["prepare"]>;
   transaction<T>(work: (tx: DatabaseExecutor) => Promise<T>): Promise<T>;
   ready(): Promise<void>;
@@ -16,6 +17,7 @@ export interface AppDatabase extends DatabaseExecutor {
 
 /** Small prepared-statement adapter; game repositories do not depend on Bun APIs. */
 export class LocalDatabase {
+  readonly dialect = "sqlite" as const;
   readonly sqlite: Database;
   private transactionQueue: Promise<void> = Promise.resolve();
   constructor(filename: string) {
@@ -105,6 +107,7 @@ function postgresSql(sql: string) {
 }
 
 export class PostgresDatabase implements AppDatabase {
+  readonly dialect = "postgres" as const;
   private readonly client: SQL;
   private readonly initialized: Promise<void>;
   constructor(url: string) {
@@ -132,10 +135,12 @@ export class PostgresDatabase implements AppDatabase {
   }
   private async migrate() {
     await this.client.unsafe(`
+      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
       CREATE TABLE IF NOT EXISTS records (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL);
       CREATE TABLE IF NOT EXISTS transcripts (id TEXT PRIMARY KEY NOT NULL, owner TEXT NOT NULL, character TEXT NOT NULL, text TEXT NOT NULL, created BIGINT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_transcripts_owner ON transcripts(owner);
       CREATE TABLE IF NOT EXISTS harness_requests (owner TEXT NOT NULL, request_id TEXT NOT NULL, run_id TEXT NOT NULL, digest TEXT NOT NULL, status TEXT NOT NULL, result TEXT, code INTEGER, updated BIGINT NOT NULL, PRIMARY KEY(owner,request_id));
+      CREATE INDEX IF NOT EXISTS idx_harness_requests_retention ON harness_requests(owner,status,updated);
       CREATE TABLE IF NOT EXISTS harness_events (seq BIGSERIAL PRIMARY KEY, owner TEXT NOT NULL, run_id TEXT NOT NULL, type TEXT NOT NULL, payload TEXT NOT NULL, created BIGINT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_harness_events_owner ON harness_events(owner,seq);
       CREATE TABLE IF NOT EXISTS twitter_jobs (owner TEXT NOT NULL, run_id TEXT NOT NULL, job_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,job_id));
@@ -144,6 +149,9 @@ export class PostgresDatabase implements AppDatabase {
       CREATE TABLE IF NOT EXISTS character_memories (owner TEXT NOT NULL, run_id TEXT NOT NULL, character TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,character));
       CREATE TABLE IF NOT EXISTS twitter_posts (owner TEXT NOT NULL, run_id TEXT NOT NULL, post_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id,post_id));
       CREATE TABLE IF NOT EXISTS game_logs (owner TEXT NOT NULL, run_id TEXT NOT NULL, value TEXT NOT NULL, updated BIGINT NOT NULL, PRIMARY KEY(owner,run_id));
+
+      DELETE FROM harness_requests
+      WHERE status='succeeded' AND updated < (EXTRACT(EPOCH FROM clock_timestamp())*1000-43200000);
 
       WITH valid_games AS MATERIALIZED (
         SELECT key,value::jsonb AS state,updated FROM records
@@ -160,6 +168,54 @@ export class PostgresDatabase implements AppDatabase {
       )
       UPDATE records r SET value=(v.state #- '{twitter,jobs}')::text
       FROM valid_games v WHERE r.key=v.key AND v.state->'twitter' ? 'jobs';
+
+      WITH valid_games AS MATERIALIZED (SELECT key,value::jsonb state,updated FROM records WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb'))
+      INSERT INTO line_threads(owner,run_id,character,value,updated)
+      SELECT substring(r.key from 6),COALESCE(r.state->>'runId',''),item.key,item.value::text,r.updated
+      FROM valid_games r CROSS JOIN LATERAL jsonb_each(COALESCE(r.state->'messages','{}'::jsonb)) item
+      ON CONFLICT(owner,run_id,character) DO NOTHING;
+
+      WITH valid_games AS MATERIALIZED (SELECT key,value::jsonb state,updated FROM records WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb'))
+      INSERT INTO character_memories(owner,run_id,character,value,updated)
+      SELECT substring(r.key from 6),COALESCE(r.state->>'runId',''),item.key,item.value::text,r.updated
+      FROM valid_games r CROSS JOIN LATERAL jsonb_each(COALESCE(r.state->'memories','{}'::jsonb)) item
+      ON CONFLICT(owner,run_id,character) DO NOTHING;
+
+      WITH valid_games AS MATERIALIZED (SELECT key,value::jsonb state,updated FROM records WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb'))
+      INSERT INTO twitter_posts(owner,run_id,post_id,value,updated)
+      SELECT substring(r.key from 6),COALESCE(r.state->>'runId',''),item.key,item.value::text,r.updated
+      FROM valid_games r CROSS JOIN LATERAL jsonb_each(COALESCE(r.state->'twitter'->'posts','{}'::jsonb)) item
+      ON CONFLICT(owner,run_id,post_id) DO NOTHING;
+
+      WITH valid_games AS MATERIALIZED (SELECT key,value::jsonb state,updated FROM records WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb'))
+      INSERT INTO game_logs(owner,run_id,value,updated)
+      SELECT substring(key from 6),COALESCE(state->>'runId',''),COALESCE(state->'log','[]'::jsonb)::text,updated FROM valid_games
+      ON CONFLICT(owner,run_id) DO NOTHING;
+
+      WITH valid_games AS MATERIALIZED (
+        SELECT key,value::jsonb AS state FROM records
+        WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb')
+      )
+      UPDATE records r SET value=(((v.state-'messages')-'memories')-'log' #- '{twitter,posts}')::text
+      FROM valid_games v WHERE r.key=v.key;
+
+      WITH current_games AS MATERIALIZED (
+        SELECT substring(key from 6) owner,state->>'runId' run_id,state->>'date' game_date,
+          CASE WHEN state->>'phase' ~ '^\\d+$' THEN (state->>'phase')::int ELSE 99 END game_phase
+        FROM (SELECT key,value::jsonb state FROM records WHERE key LIKE 'game:%' AND pg_input_is_valid(value,'jsonb')) games
+      )
+      UPDATE twitter_jobs jobs SET
+        value=jsonb_set(jobs.value::jsonb,'{posts}','[]'::jsonb)::text,
+        updated=GREATEST(jobs.updated,(EXTRACT(EPOCH FROM clock_timestamp())*1000)::bigint)
+      FROM current_games game
+      WHERE jobs.owner=game.owner AND jobs.run_id=game.run_id
+        AND jobs.value::jsonb->>'status'='done'
+        AND (
+          jobs.job_id<>concat(jobs.value::jsonb->>'date',':',jobs.value::jsonb->>'phase',':',jobs.value::jsonb->>'actor')
+          OR jobs.value::jsonb->>'date'<game.game_date
+          OR (jobs.value::jsonb->>'date'=game.game_date AND
+            CASE WHEN jobs.value::jsonb->>'phase' ~ '^\\d+$' THEN (jobs.value::jsonb->>'phase')::int ELSE 99 END<game.game_phase)
+        );
     `);
   }
   ready() { return this.initialized; }

@@ -33,6 +33,7 @@ export async function admittedRequest(owner:string,input:Record<string,unknown>,
     row=(await sql.query<any>('SELECT * FROM harness_requests WHERE owner=? AND request_id=?',[owner,id])).rows[0];
     if(!row){
       await sql.query("INSERT INTO harness_requests VALUES (?,?,?,?, 'running',NULL,NULL,?)",[owner,id,run,digest,Date.now()]);
+      await sql.query("DELETE FROM harness_requests WHERE owner=? AND status='succeeded' AND updated<?",[owner,Date.now()-12*60*60*1000]);
       completion=new Promise<Result>(resolve=>{settle=resolve;});active.set(key,completion);
     }
   }finally{unlock();if(admissionLocks.get(key)===lock)admissionLocks.delete(key);}

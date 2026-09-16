@@ -21,12 +21,26 @@ export class ProgressConflictError extends Error{
 function gameCore(state:GameState){
  const stored=structuredClone(state);
  if(stored.twitter)delete stored.twitter.jobs;
+ if(db().dialect==='postgres'){
+  stored.messages={};stored.memories={};stored.log=[];
+  if(stored.twitter)stored.twitter.posts={};
+ }
  return stored;
 }
 async function hydrateGame(owner:string,state:GameState,executor:DatabaseExecutor=db()){
  const runId=state.runId??'';
  const jobs=await executor.query<{job_id:string;value:string}>('SELECT job_id,value FROM twitter_jobs WHERE owner=? AND run_id=?',[owner,runId]);
  if(state.twitter&&(state.twitter.jobs!==undefined||jobs.rows.length))state.twitter.jobs={...state.twitter.jobs,...Object.fromEntries(jobs.rows.map(row=>[row.job_id,JSON.parse(row.value)]))};
+ if(db().dialect==='postgres'){
+  const threads=await executor.query<{character:string;value:string}>('SELECT character,value FROM line_threads WHERE owner=? AND run_id=?',[owner,runId]);
+  const memories=await executor.query<{character:string;value:string}>('SELECT character,value FROM character_memories WHERE owner=? AND run_id=?',[owner,runId]);
+  const posts=await executor.query<{post_id:string;value:string}>('SELECT post_id,value FROM twitter_posts WHERE owner=? AND run_id=?',[owner,runId]);
+  const logs=await executor.query<{value:string}>('SELECT value FROM game_logs WHERE owner=? AND run_id=?',[owner,runId]);
+  state.messages={...state.messages,...Object.fromEntries(threads.rows.map(row=>[row.character,JSON.parse(row.value)]))};
+  state.memories={...state.memories,...Object.fromEntries(memories.rows.map(row=>[row.character,JSON.parse(row.value)]))};
+  if(state.twitter)state.twitter.posts={...state.twitter.posts,...Object.fromEntries(posts.rows.map(row=>[row.post_id,JSON.parse(row.value)]))};
+  if(logs.rows[0])state.log=JSON.parse(logs.rows[0].value);
+ }
  return state;
 }
 const commitQueues=new Map<string,Promise<void>>();
@@ -44,6 +58,12 @@ async function syncMap(executor:DatabaseExecutor,table:string,idColumn:string,ow
   await executor.query(`INSERT INTO ${table}(owner,run_id,${idColumn},value,updated) VALUES(?,?,?,?,?) ON CONFLICT(owner,run_id,${idColumn}) DO UPDATE SET value=excluded.value,updated=excluded.updated`,[owner,runId,id,JSON.stringify(value),Date.now()]);
  }
 }
+async function syncPostgresSections(executor:DatabaseExecutor,owner:string,runId:string,next:GameState,old:Partial<GameState>){
+ await syncMap(executor,'twitter_posts','post_id',owner,runId,next.twitter?.posts??{},old.twitter?.posts??{});
+ await syncMap(executor,'line_threads','character',owner,runId,next.messages,old.messages??{});
+ await syncMap(executor,'character_memories','character',owner,runId,next.memories,old.memories??{});
+ if(JSON.stringify(next.log)!==JSON.stringify(old.log))await executor.query('INSERT INTO game_logs(owner,run_id,value,updated) VALUES(?,?,?,?) ON CONFLICT(owner,run_id) DO UPDATE SET value=excluded.value,updated=excluded.updated',[owner,runId,JSON.stringify(next.log),Date.now()]);
+}
 export async function read<T>(key: string, fallback: T): Promise<T> {
   const row = await db()
     .prepare("SELECT value FROM records WHERE key = ?")
@@ -60,6 +80,10 @@ export async function write(key: string, value: unknown) {
       await tx.query('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated=excluded.updated',[key,JSON.stringify(gameCore(state)),Date.now()]);
       await tx.query('DELETE FROM twitter_jobs WHERE owner=?',[owner]);
       for(const [jobId,job] of Object.entries(state.twitter?.jobs??{}))await tx.query('INSERT INTO twitter_jobs(owner,run_id,job_id,value,updated) VALUES(?,?,?,?,?)',[owner,runId,jobId,JSON.stringify(job),Date.now()]);
+      if(db().dialect==='postgres'){
+       for(const table of ['twitter_posts','line_threads','character_memories','game_logs'])await tx.query(`DELETE FROM ${table} WHERE owner=?`,[owner]);
+       await syncPostgresSections(tx,owner,runId,state,{} as GameState);
+      }
     });
     return;
   }
@@ -84,6 +108,7 @@ export async function insertInitialGame(owner:string,state:GameState){
   const result=await tx.query<{key:string}>('INSERT INTO records(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO NOTHING RETURNING key',['game:'+owner,JSON.stringify(gameCore(state)),Date.now()]);
   if(result.rows.length!==1)return false;
   for(const [jobId,job] of Object.entries(state.twitter?.jobs??{}))await tx.query('INSERT INTO twitter_jobs(owner,run_id,job_id,value,updated) VALUES(?,?,?,?,?)',[owner,state.runId??'',jobId,JSON.stringify(job),Date.now()]);
+  if(db().dialect==='postgres')await syncPostgresSections(tx,owner,state.runId??'',state,{} as GameState);
   return true;
  });
 }
@@ -109,9 +134,11 @@ export async function commit(owner: string, s: GameState, old: GameState,options
   // Completed workers are durable scheduling markers, but their full candidate
   // snapshots are useless after their time slot. Keeping those arrays made one
   // active save exceed 1.6 MB and multiplied every compare-and-swap transfer.
-  for(const job of Object.values(s.twitter?.jobs??{})){
-    if(job.status==='done'&&`${job.date}:${job.phase}`<`${s.date}:${s.phase}`)
-      job.posts=job.trigger?.postId?[job.trigger.postId]:[];
+  for(const [jobId,job] of Object.entries(s.twitter?.jobs??{})){
+    const expired=job.date<s.date||(job.date===s.date&&job.phase<s.phase);
+    const baseSlotJob=jobId===`${job.date}:${job.phase}:${job.actor}`;
+    if(job.status==='done'&&(expired||!baseSlotJob))
+      job.posts=[];
   }
   await serializeCommit(owner,()=>db().transaction(async tx=>{
     const stored=JSON.stringify(gameCore(s));
@@ -120,6 +147,10 @@ export async function commit(owner: string, s: GameState, old: GameState,options
     const reset=!!options?.resetRun||old.runId!==s.runId,runId=s.runId??'';
     if(reset)await tx.query('DELETE FROM twitter_jobs WHERE owner=?',[owner]);
     await syncMap(tx,'twitter_jobs','job_id',owner,runId,s.twitter?.jobs??{},reset?{}:old.twitter?.jobs??{});
+    if(db().dialect==='postgres'){
+      if(reset)for(const table of ['twitter_posts','line_threads','character_memories','game_logs'])await tx.query(`DELETE FROM ${table} WHERE owner=?`,[owner]);
+      await syncPostgresSections(tx,owner,runId,s,reset?{}:old);
+    }
     if(options?.resetRun)await tx.query('DELETE FROM records WHERE key=?',['image-job:'+owner]);
     await settleCommittedState(owner,s,tx);
     await appendEvent(owner,s.runId??'',JSON.stringify(old.messages)!==JSON.stringify(s.messages)?'line.received':'game.changed',{revision:s.revision},tx);
