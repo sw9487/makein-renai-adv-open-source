@@ -664,8 +664,8 @@ small {
   min-height: 40px;
 }
 .talk-form textarea:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: none;
 }
 .talk-form button {
   display: flex;
@@ -2254,7 +2254,7 @@ svg.character-sprite { height:80%;width:auto;bottom:0;border-radius:12px; }
 .phone-modal .line-date-divider time{background:var(--line-date);color:var(--muted-foreground)}
 .phone-modal .message-form textarea{background:var(--background);color:var(--foreground);border-color:var(--input)}
 .phone-modal .message-form textarea::placeholder{color:var(--muted-foreground)}
-.phone-modal .message-form textarea:focus-visible{outline:2px solid #06c755;outline-offset:2px}
+.phone-modal .message-form textarea:focus,.phone-modal .message-form textarea:focus-visible{outline:none;box-shadow:none}
 .phone-modal .message-form .primary{background:#06c755;color:#fff;border-color:#06c755}
 .phone-modal .message-form .primary:hover:not(:disabled){background:#05b34d;border-color:#05b34d}
 .phone-modal .message-form .primary:disabled{background:var(--muted);color:var(--line-disabled);border-color:var(--border);opacity:1}
