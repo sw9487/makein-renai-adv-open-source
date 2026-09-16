@@ -101,7 +101,21 @@ export class PostgresDatabase implements AppDatabase {
   private readonly client: SQL;
   private readonly initialized: Promise<void>;
   constructor(url: string) {
-    this.client = new SQL(url);
+    // Match copilot-v2's process-wide pool: hot reloads and repeated runtime
+    // initialization must not create another independent set of connections.
+    const globalForDb = globalThis as typeof globalThis & {
+      __makeinePostgresClients?: Map<string, SQL>;
+    };
+    const clients = globalForDb.__makeinePostgresClients ??= new Map();
+    const existing = clients.get(url);
+    this.client = existing ?? new SQL(url, {
+      max: 30,
+      connection: { TimeZone: "UTC" },
+      prepare: false,
+      connectionTimeout: 10,
+      idleTimeout: 30,
+    });
+    if (!existing) clients.set(url, this.client);
     this.initialized = this.migrate();
   }
   private async migrate() {
@@ -134,5 +148,7 @@ export class PostgresDatabase implements AppDatabase {
       return { rows: Array.from(rows), changes: rows.count ?? rows.length };
     }}));
   }
-  async close() { await this.client.close(); }
+  // The process-wide pool deliberately survives runtime/hot-reload teardown.
+  // Bun closes it when the process exits, just like copilot-v2's postgres-js pool.
+  close() {}
 }

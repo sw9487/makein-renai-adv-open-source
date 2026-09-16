@@ -70,9 +70,11 @@ export async function commit(owner: string, s: GameState, old: GameState,options
     if(options?.resetRun)await tx.query('DELETE FROM records WHERE key=?',['image-job:'+owner]);
     await settleCommittedState(owner,s,tx);
     await appendEvent(owner,s.runId??'',JSON.stringify(old.messages)!==JSON.stringify(s.messages)?'line.received':'game.changed',{revision:s.revision},tx);
+    const archived = new Set(Object.entries(old.memories).flatMap(([character,memory])=>(memory.archive??[]).map(message=>JSON.stringify({character,message}))));
     for(const [character,memory] of Object.entries(s.memories)){
       for(const message of memory.archive??[]){
         const identity=JSON.stringify({character,message});
+        if(archived.has(identity))continue;
         const key='memory-source:'+owner+':'+(s.runId??'')+':'+new Bun.CryptoHasher('sha256').update(identity).digest('hex');
         await tx.query('INSERT OR IGNORE INTO records(key,value,updated) VALUES(?,?,?)',[key,identity,Date.now()]);
       }

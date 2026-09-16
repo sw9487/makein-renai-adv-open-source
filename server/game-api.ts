@@ -216,7 +216,10 @@ async function performPOST(req: Request) {
       const result = await converse(old, c, a.character, a.text.trim(), a.channel, actionText, onPartial,signal);
       if(a.channel==='talk'){const image=await illustrateScene(result.state,c,false,signal);result.notice=image.notice;}
       result.state=await commitConcurrent(id, result.state, old,a.channel==='line');
-      await db()
+      // The committed game state is the user-visible completion boundary. A
+      // transcript is auxiliary history and must not leave LINE saying
+      // "sending/replying" while it waits for another pool checkout.
+      void db()
         .prepare("INSERT INTO transcripts (id,owner,character,text,created) VALUES (?,?,?,?,?)")
         .bind(
           crypto.randomUUID(),
@@ -232,7 +235,8 @@ async function performPOST(req: Request) {
           }),
           Date.now(),
         )
-        .run();
+        .run()
+        .catch(error=>console.error("Failed to persist conversation transcript",error));
       return result;
       };
       if(req.headers.get('accept')?.includes('text/event-stream')){
