@@ -1,6 +1,6 @@
 # 開發文件
 
-**语言导航 / Languages / 言語:** [繁體中文](README.md) · [English](en/README.md) · [日本語](ja/README.md)
+**语言导航 / Languages / 言語:** [繁體中文](README.md) · [English](../en/README.md) · [日本語](../ja/README.md)
 
 本目錄記錄遊戲、Editor、LLM 整合與各功能模組的設計。
 
