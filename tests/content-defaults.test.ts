@@ -10,6 +10,18 @@ import {validateContent} from '../server/validation';
 import {defaultPublicAccounts} from '../core/twitter-public';
 import {translationFields} from '../web/components/editor';
 
+// Some content-default keys are proper nouns or identifiers that legitimately
+// stay identical across locales: character speaker names, asset source URLs,
+// and real place/shop brand names. Punctuation-only values likewise have no
+// meaningful translation. The "must differ from source" check below is skipped
+// for these so a faithful translation isn't treated as untranslated text.
+function isNonTranslatable(key:string,value:string){
+ if(key.endsWith('.speaker')) return true;               // character name line
+ if(key.endsWith('.source')) return true;                // asset/source URL
+ if(key.startsWith('places.') && key.endsWith('.name')) return true; // shop/place proper noun
+ return /^[\p{P}\s]+$/u.test(value);                     // punctuation-only token (e.g. "。")
+}
+
 test('the default registry includes every place, event line, choice and library description',()=>{
  const source=authoredContentDefaults();
  expect(Object.keys(source).length).toBeGreaterThan(1100);
@@ -18,7 +30,7 @@ test('the default registry includes every place, event line, choice and library 
   for(const [key,value] of Object.entries(catalog)){
    expect(key in source).toBe(true);
    expect(value.trim()).not.toBe('');
-   expect(value).not.toBe(source[key]);
+   if(!isNonTranslatable(key,value)) expect(value).not.toBe(source[key]);
   }
  for(const place of defaultContent.places)for(const field of ['name','subtitle'])
   expect(source[`places.${place.id}.${field}`]).toBeTruthy();
