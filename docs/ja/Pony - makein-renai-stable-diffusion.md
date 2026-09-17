@@ -1,17 +1,19 @@
-﻿銝餉??Ｕ???https://civitai.com/models/880541/zuki-clean-anime-mix
+**言語:** [繁體中文](../zh-TW/Pony - makein-renai-stable-diffusion.md) · [English](../en/Pony - makein-renai-stable-diffusion.md) · [日本語](Pony - makein-renai-stable-diffusion.md)
 
-**閮隤?** [蝜?銝剜?](../Pony - makein-renai-stable-diffusion.md) 繚 [English](../en/Pony - makein-renai-stable-diffusion.md) 繚 [?交隤(Pony - makein-renai-stable-diffusion.md)
-
-鈭箇 LoRA
+主要モデル
+https://civitai.com/models/880541/zuki-clean-anime-mix
+人物 LoRA
 makein-renai-stable-diffusion-webui\models\Lora\Pony
 
 ---
 
-銝颯?蝝嫣?
-Prompt嚗?
+モデル紹介
+プロンプト：
+
 score_9,score_8_up,score_7_up,source_anime,,
 
-Negative prompt嚗?
+ネガティブプロンプト：
+
 score_6,score_5,score_4,bad eyes,bright pupils,white pupils,ugly,bad hands,furry,censored,
 
 step:30
@@ -25,121 +27,131 @@ hires:
 0.4~0.5
 ---
 
-鈭箇?Ｕ??怎晶隞?
+人物モデル紹介：
 
-皜拇偌 雿單邦嚗?https://civitai.com/models/592056/pony-xl-nukumizu-kaju-make-heroine-ga-oo-sugiru
+温水 佳樹：
+https://civitai.com/models/592056/pony-xl-nukumizu-kaju-make-heroine-ga-oo-sugiru
 
-???嗆?
+半袖の制服
 
 kaju-default,nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,white dress,dress,brown sailor collar,yellow socks,loafers
 
-?瑁??嗆?
+長袖の制服
 
 kaju-default,nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,brown dress,dress,long sleeves,white sailor collar,yellow socks,loafers
 
-蝘?1
+私服1
 
 kaju-casual1,nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,hairband,suspenders,white shirt,collared shirt, suspender skirt,long skirt,white socks
 
-蝘?2
+私服2
 
 kaju-casual2,nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,bow hairband,yellow shirt, blue overalls,long skirt,white socks
 
-撖溶??
+寝巻き
+
 kaju-pajamas, nukumizu kaju, brown eyes,black hair, long hair, blunt bangs,blue pajamas,blue pants
 
 ---
 
-?怠?閬???嚗?https://civitai.com/models/597929/pony-xl-yanami-anna-make-heroine-ga-oo-sugiru
+八奈見 杏菜：
+https://civitai.com/models/597929/pony-xl-yanami-anna-make-heroine-ga-oo-sugiru
 
-???嗆?
+半袖の制服
 
 anna-default, yanami anna,blue eyes,blue hair,medium hair,school uniform,white shirt,short sleeves,bowties,grey skirt,pleated skirt,black socks,loafers
 
-?瑁??嗆?
+長袖の制服
 
 anna-default, yanami anna,blue eyes,blue hair,medium hair,school uniform,white jacket,long sleeves,yellow cardigan,bowties,grey skirt,pleated skirt,black socks,loafers
 
-瘞渡?
+水着
 
 anna-swim,yanami anna,blue eyes,blue hair,ponytail,hair scrunchie,blue bikini,print bikini,side-tie bikini bottom,white hoodie,long sleeves,open hoodie
 
-蝘?1 ?怠?閬??1撟氬??5??柴??扎????
+私服1 八奈見ちゃん1年ぶり15回目のナイスバディ
+
 anna-casual,yanami anna,blue eyes,blue hair,medium hair,white dress,sleeveless
 
-蝘?2
+私服2
 
 anna-casual,yanami anna,blue eyes,blue hair,ponytail,purple t-shirt,black shorts
 
-摮血?蟡?
+学園祭
+
 anna-ghost,yanami anna,blue eyes,blue hair,medium hair,triangular headpiece,ghost costume,ghost hair ornament,japanese clothes,wide sleeves,hitodama
 
-暺?潦??
+黒セーラー
+
 anna-serafuku, yanami anna,blue eyes,blue hair, twin braids, black serafuku, red bow, black shirt, long sleeves, black skirt,glasses
 
 ---
 
-撠? ?亥嚗?https://civitai.com/models/608314/pony-xl-komari-chika-make-heroine-ga-oo-sugiru
+小鞠 知花：
+https://civitai.com/models/608314/pony-xl-komari-chika-make-heroine-ga-oo-sugiru
 
-???嗆?
+半袖の制服
 
 chika-default,komari chika,yellow eyes,red hair,hair over one eye,one side up, hair bobbles,school uniform,white shirt,bowties,oversized clothes,short sleeves, grey skirt,black socks,loafers
 
-?瑁??嗆?
+長袖の制服
 
 chika-default,komari chika,yellow eyes,red hair,hair over one eye,one side up, hair bobbles,school uniform,white jacket,bowties,long sleeves,grey skirt,black socks,loafers
 
-瘞渡?
+水着
 
 chika-swimsuit,komari chika,yellow eyes,red hair,hair over one eye,one side up,hair bobbles,white hoodie,pink hood,open hoodie,swimsuit,blue one-piece swimsuit
 
-蝘?
+私服
 
 chika-casual,komari chika,yellow eyes,red hair,hair over one eye,one side up,hair bobbles,yellow hoodie,blue shorts,white socks,red sneakers
 
 ---
 
-?澆〝 瑼豢狀嚗?https://civitai.com/models/609116/pony-xl-yakishio-lemon-make-heroine-ga-oo-sugiru
+焼塩 檸檬：
+https://civitai.com/models/609116/pony-xl-yakishio-lemon-make-heroine-ga-oo-sugiru
 
-???嗆?
+半袖の制服
 
 remon-default,yakishio lemon,purple eyes,brown hair,short hair,hair ornament,school uniform,white shirt,short sleeves,bowties,grey skirt,pleated skirt,white socks,loafers
 
-?瑁??嗆?
+長袖の制服
 
 remon-default,yakishio lemon,purple eyes,brown hair,short hair,hair ornament,school uniform,white jacket,long sleeves,bowties,grey skirt,pleated skirt,white socks,loafers
 
-瘞渡?
+水着
 
 remon-swimsuit,yakishio lemon,purple eyes,brown hair, short hair,hair ornament,white hoodie,open hoodie,orange bikini,tanlines,tan
 
-雿??
+体操着
 
 remon-gym,yakishio lemon,purple eyes,brown hair,short hair,hair ornament,gym shirt,black t-shirt,track pants
 
-??拍
+ミイラ男
 
 remon-mummy,yakishio lemon,purple eyes,brown hair,short hair, mummy costume, chest sarashi,tanlines,tan
 
 ---
 
-? ?嚗?https://civitai.com/models/802777/pony-xl-asagumo-chihaya-make-heroine-ga-oo-sugiru
+朝雲 千早：
+https://civitai.com/models/802777/pony-xl-asagumo-chihaya-make-heroine-ga-oo-sugiru
 
-???嗆?
+半袖の制服
 
 chihaya-default,asagumo chihaya,purple eyes,brown hair,parted bangs,long hair,school uniform,white shirt,short sleeves,yellow sweater vest,sweater vest,bowties,grey skirt,smile,black socks,loafers
 
-?瑁??嗆?
+長袖の制服
 
 chihaya-default,asagumo chihaya,purple eyes,brown hair,parted bangs,long hair,school uniform,white jacket,long sleeves,bowties,grey skirt
 
-蝘?
+私服
 
 chihaya-casual,asagumo chihaya,purple eyes, brown hair, parted bangs,long hair, blue dress,collared dress, white collarbone,short sleeves,straw hat
 
 ---
 
-憪怠悅 ?舀?嚗?https://civitai.com/models/732100/pdxl-himemiya-karen-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
+姫宮 華恋：
+https://civitai.com/models/732100/pdxl-himemiya-karen-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
@@ -157,7 +169,7 @@ winter school uniform, white blazer, white collared shirt, long sleeves, red bow
 
 ---
 
-擐砍? 憭拇???
+馬剃 天愛星：
 https://civitai.com/models/786116/pdxl-basori-tiara-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
@@ -166,7 +178,7 @@ Tips: Use inpaint to fix bows.
 
 Character - Default
 
-tiara basori, black hair, short hair, hair bun, (thick eyebrows:0.6), blue eyes, mole on neck 
+tiara basori, black hair, short hair, hair bun, (thick eyebrows:0.6), blue eyes, mole on neck
 Outfit - Winter School Uniform
 
 winter school uniform, white blazer, white collared shirt, long sleeves, cyan bowtie, white bowtie, (name tag:0.6), grey pleated skirt, (long skirt:0.8), black pantyhose, white footwear
@@ -176,7 +188,8 @@ maid costume, cat ears, black dress, white collar, frills, white apron, juliet s
 
 ---
 
-皜拇偌 ?膠嚗?https://civitai.com/models/621652/pdxl-nukumizu-kazuhiko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
+温水 和彦：
+https://civitai.com/models/621652/pdxl-nukumizu-kazuhiko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
@@ -192,7 +205,8 @@ topless, black male swimwear, swim trunks
 
 ---
 
-敹?撅?憭Ｗ?嚗?https://civitai.com/models/709855/pdxl-shikiya-yumeko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
+志喜屋 夢子：
+https://civitai.com/models/709855/pdxl-shikiya-yumeko-or-make-heroine-ga-oosugiru-makeine-too-many-losing-heroines
 
 Recommended weight range: 0.9 to 1.
 
